@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --buRed: #CC0000;
+  --buGray: #2D2926;
 }
 
 @theme inline {
@@ -10,6 +12,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-buRed: var(--buRed);
+  --color-buGray: var(--buGray);
 }
 
 @media (prefers-color-scheme: dark) {
