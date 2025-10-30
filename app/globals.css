@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #ffffff; /* white background */
+  --foreground: #171717; /* dark text */
   --buRed: #CC0000;
   --buGray: #2D2926;
 }
@@ -22,6 +22,8 @@
     --foreground: #ededed;
   }
 }
+
+
 
 body {
   background: var(--background);
