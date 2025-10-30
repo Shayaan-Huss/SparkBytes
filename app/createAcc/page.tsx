@@ -1,4 +1,5 @@
 'use client'
+import Link from "next/link";
 export default function CreateAcc() {
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -18,7 +19,7 @@ export default function CreateAcc() {
         </button>
         <div className="text-center mt-4 min-w-full">
           {/* TODO: MAKE THIS LEAD TO LOGIN PAGE ONCE IMPLEMENTED */}
-          <a href="/">Already have an Account? Login</a> 
+          <Link href="/">Already have an Account? Login</Link>
         </div>
       </div> 
     </div>
