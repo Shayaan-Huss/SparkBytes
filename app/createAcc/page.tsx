@@ -19,7 +19,7 @@ export default function CreateAcc() {
         </button>
         <div className="text-center mt-4 min-w-full">
           {/* TODO: MAKE THIS LEAD TO LOGIN PAGE ONCE IMPLEMENTED */}
-          <Link href="/">Already have an Account? Login</Link>
+          <Link href="/signin">Already have an Account? Sign in</Link>
         </div>
       </div> 
     </div>

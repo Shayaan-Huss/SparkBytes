@@ -17,13 +17,13 @@ export default function Signin(){
     >
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Input placeholder="BU email" variant="filled" size="large" />
-        <Input.Password placeholder="input password" variant="filled" size="large" />
+        <Input.Password placeholder="Password" variant="filled" size="large" />
         <Button type="primary" shape="round" size="large" block>
         Sign in
         </Button>
         <Space direction="horizontal" size={7}>
           <Text type="secondary"> Don&lsquo;t have an account? </Text>
-          <Link href="" style={{ color: "#1677ff", fontSize: 14 }}>
+          <Link href="/createAcc" style={{ color: "#1677ff", fontSize: 14 }}>
             Sign up
           </Link>
         </Space>
