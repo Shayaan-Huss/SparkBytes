@@ -1,0 +1,7 @@
+export default function FoodPage() {
+  return (
+    <main className="flex min-h-screen items-center justify-center">
+      <h1 className="text-3xl font-bold">This is the Food page</h1>
+    </main>
+  );
+}
