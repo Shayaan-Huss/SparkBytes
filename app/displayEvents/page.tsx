@@ -8,7 +8,7 @@ interface Event {
   title: string;
   description: string;
   location: string;
-  date: string;
+  event_date: string;
   start_time: string;
   end_time: string;
   capacity: number;
@@ -50,7 +50,7 @@ export default function DisplayEvents() {
       const { data, error } = await supabase
         .from('events')
         .select('*')
-        .order('date', { ascending: true });
+        .order('event_date', { ascending: true });
 
       if (error) throw error;
 
@@ -138,7 +138,7 @@ export default function DisplayEvents() {
                     <svg className="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span>{formatDate(event.date)}</span>
+                    <span>{formatDate(event.event_date)}</span>
                   </div>
                   
                   <div className="flex items-center text-gray-700">
