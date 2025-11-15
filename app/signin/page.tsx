@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Space, Input, Card } from 'antd'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 
 export default function Signin() {
   const router = useRouter()
