@@ -84,6 +84,8 @@ function EventsPage() {
     }
 
     try {
+      //Commented out to test the create event form
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -152,6 +154,19 @@ function EventsPage() {
     });
   };
 
+{/* <style jsx>{`
+  input,
+  textarea {
+    color: #374151;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #6b7280;
+    opacity: 1;
+  }
+`}</style> */}
+
   return (
     <div style={styles.pageContainer}>
       <h1 style={styles.pageTitle}>Events</h1>
@@ -213,8 +228,8 @@ function EventsPage() {
           />
 
           <div style={styles.formButtons}>
+          <button type="button" style={styles.cancelButton} onClick={() => setFormVisible(false)}>Cancel</button>
             <button type="submit" style={styles.submitButton}>Submit</button>
-            <button type="button" style={styles.cancelButton} onClick={() => setFormVisible(false)}>Cancel</button>
           </div>
         </form>
       )}
@@ -341,6 +356,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '5px',
     border: '1px solid #ccc',
     boxSizing: 'border-box',
+    color: '#374151',
   },
   textarea: {
     width: '100%',
@@ -351,6 +367,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: '1px solid #ccc',
     resize: 'vertical' as const,
     boxSizing: 'border-box',
+    color: '#374151',
   },
   formButtons: {
     display: 'flex',
