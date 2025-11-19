@@ -6,17 +6,17 @@ import { supabase } from '../../lib/supabaseClient'
 
 interface AuthContextType {
   user: User | null
-  loading: boolean
+  load_user: boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  loading: true,
+  load_user: true,
 })
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [load_user, setLoading] = useState(true)
   useEffect(() => {
     const getSession = async () => {
       const { data } = await supabase.auth.getSession()
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, load_user }}>
       {children}
     </AuthContext.Provider>
   )

@@ -3,9 +3,9 @@
 import { useAuth } from '@/context/AuthContext';
 
 export default function UserDebugPage() {
-  const { user, loading } = useAuth();
+  const { user, load_user } = useAuth();
 
-  if (loading) {
+  if (load_user) {
     return <p style={{ padding: '20px' }}>Loading user...</p>;
   }
 
