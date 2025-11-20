@@ -201,6 +201,7 @@ function EventsPage() {
           />
           <input
             type="date"
+            placeholder="Date"
             value={date}
             style={styles.input}
             onChange={(e) => setDate(e.target.value)}
