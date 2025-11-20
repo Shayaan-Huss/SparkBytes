@@ -7,12 +7,25 @@ export default function CreateAcc() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('')
-    if (!email || !password) return setMessage('Email and password required')
+    if (!email || !password || !firstName || !lastName) return setMessage('All fields are required')
+    // check if email ends with @bu.edu
+    if (!/@bu\.edu$/i.test(email)) return setMessage('Please use your BU email (@bu.edu)')
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        data: {
+          first_name : firstName,
+          last_name: lastName
+        }
+      }
+    })
     if ( error ) setMessage(error.message)
     else {
       if (data.session) {
@@ -29,6 +42,8 @@ export default function CreateAcc() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <input type="email" placeholder="Email" required value={email} onChange={e=>setEmail(e.target.value)} className="p-2 border-b-1 border-buGray" />
           <input type="password" placeholder="Password" required value={password} onChange={e=>setPassword(e.target.value)} className="p-2 border-b-1 border-buGray" />
+          <input type="text" placeholder="First name" required value={firstName} onChange={e=>setFirstName(e.target.value)} className="p-2 border-b-1 border-buGray" />
+          <input type="text" placeholder="Last name" required value={lastName} onChange={e=>setLastName(e.target.value)} className="p-2 border-b-1 border-buGray" />
           <button type="submit" className="mt-4 bg-white text-buRed font-bold py-2 px-4 rounded-3xl hover:bg-gray-200 min-w-full"
           disabled={loading}>{loading ? 'Creating…' : 'Create account'}
           </button>
