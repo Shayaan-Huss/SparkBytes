@@ -1,6 +1,4 @@
--- sparkbytes -- 
-
-# Next.js & Supabase Event Management App
+# SparkBytes1
 
 This is a project built with Next.js, Ant Design, and Supabase. It includes features for viewing events and user authentication.
 
