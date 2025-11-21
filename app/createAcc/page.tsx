@@ -23,12 +23,12 @@ export default function CreateAcc() {
     setLoading(false)
   }
   return (
-    <div className="flex flex-col justify-center items-center min-h-screen text-white bg-buGray">
+    <div className="flex flex-col justify-center items-center min-h-screen text-white">
       <div className="bg-buRed p-6 rounded-lg shadow-lg w-96">
         <h1 className="mb-4 text-center">Create an account for SparkBytes!</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input type="email" placeholder="Email" required value={email} onChange={e=>setEmail(e.target.value)} className="p-2 border-b-1 border-buGray" />
-          <input type="password" placeholder="Password" required value={password} onChange={e=>setPassword(e.target.value)} className="p-2 border-b-1 border-buGray" />
+          <input type="email" placeholder="Email" required value={email} onChange={e=>setEmail(e.target.value)} className="p-2 border-b-1 border-buGray bg-white rounded-xl text-black" />
+          <input type="password" placeholder="Password" required value={password} onChange={e=>setPassword(e.target.value)} className="p-2 border-b-1 border-buGray bg-white rounded-xl text-black" />
           <button type="submit" className="mt-4 bg-white text-buRed font-bold py-2 px-4 rounded-3xl hover:bg-gray-200 min-w-full"
           disabled={loading}>{loading ? 'Creating…' : 'Create account'}
           </button>
