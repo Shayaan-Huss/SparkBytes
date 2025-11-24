@@ -23,21 +23,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-<<<<<<< Updated upstream
-        {/* Navbar */}
-        <NavBar />
-        {/* Page content */}
-        <div className="p-8">{children}</div>
-        <Footer />
-=======
-        <AuthProvider>
+        {/* <AuthProvider> */}
           {/* Navbar */}
           <NavBar />
           {/* Page content */}
           <div className="bg-gradient-to-br from-stone-100 via-amber-50 to-rose-50 text-black" style={{ fontFamily: 'Georgia, serif' }}>{children}</div>
           <Footer />
-        </AuthProvider>
->>>>>>> Stashed changes
+        {/* </AuthProvider> */}
       </body>
     </html>
   );

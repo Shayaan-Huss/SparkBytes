@@ -205,6 +205,7 @@ export default function EventsPage() {
               <input
                 type="date"
                 value={date}
+                placeholder="Date"
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full border border-gray-300 rounded-md p-2"
               />

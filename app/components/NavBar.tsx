@@ -18,7 +18,7 @@ export default function NavBar() {
       <ul className="flex max-w-4xl gap-8 text-black" >
         
         <li><Link href="/" className="text-black">Home</Link></li>
-        <li><Link href="/food" className="text-black">Food Listing</Link></li>
+        {/* <li><Link href="/food" className="text-black">Food Listing</Link></li> */}
         <li><Link href="/events" className="text-black">Events</Link></li>
         <li><Link href="/signin" className="text-black">Sign in!</Link></li>
       </ul>
