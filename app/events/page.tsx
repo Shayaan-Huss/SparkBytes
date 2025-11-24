@@ -14,7 +14,7 @@ interface Event {
   creator_id: string;
 }
 
-function EventsPage() {
+export default function EventsPage() {
   const [formVisible, setFormVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -68,7 +68,7 @@ function EventsPage() {
       setEvents(data || []);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "Failed to fetch events.");
     } finally {
       setLoading(false);
     }
@@ -84,226 +84,240 @@ function EventsPage() {
     }
 
     try {
-      //Commented out to test the create event form
-
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
-        setPopupType('error');
-        setPopupMessage('You must be logged in to create an event.');
+        setPopupType("error");
+        setPopupMessage("You must be logged in to create an event.");
         return;
       }
 
-      const { error } = await supabase
-        .from('events')
-        .insert([
-          {
-            title,
-            description,
-            capacity: parseInt(capacity),
-            event_date: date,
-            start_time: startTime,
-            end_time: endTime,
-            location,
-            creator_id: user.id
-          }
-        ]);
+      const { error } = await supabase.from("events").insert([
+        {
+          title,
+          description,
+          capacity: parseInt(capacity),
+          event_date: date,
+          start_time: startTime,
+          end_time: endTime,
+          location,
+          creator_id: user.id,
+        },
+      ]);
 
       if (error) throw error;
 
-      setPopupType('success');
-      setPopupMessage('Event created successfully!');
-
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setCapacity('');
-      setDate('');
-      setStartTime('');
-      setEndTime('');
-      setLocation('');
+      setPopupType("success");
+      setPopupMessage("Event created successfully!");
       setFormVisible(false);
 
-      // Refresh events list
+      setTitle("");
+      setDescription("");
+      setCapacity("");
+      setDate("");
+      setStartTime("");
+      setEndTime("");
+      setLocation("");
+
       fetchEvents();
     } catch (err) {
-      setPopupType('error');
-      setPopupMessage(err instanceof Error ? err.message : 'Failed to create event');
+      setPopupType("error");
+      setPopupMessage(
+        err instanceof Error ? err.message : "Failed to create event."
+      );
     }
   };
 
-  const closePopup = () => {
-    setPopupMessage('');
-    setPopupType('');
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+  const formatDate = (str: string) =>
+    new Date(str).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
-  };
 
-  const formatTime = (timeString: string) => {
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
+  const formatTime = (t: string) =>
+    new Date(`2000-01-01T${t}`).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
     });
-  };
-
-{/* <style jsx>{`
-  input,
-  textarea {
-    color: #374151;
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: #6b7280;
-    opacity: 1;
-  }
-`}</style> */}
 
   return (
-    <div style={styles.pageContainer}>
-      <h1 style={styles.pageTitle}>Events</h1>
+    <div className="min-h-screen px-6 py-10 text-black" style={{ fontFamily: 'Georgia, serif' }}>
+      <div className="flex justify-between">
+        <div>
+          <h1 className="justify-left bold text-5xl">
+            Find Free Food Events!
+          </h1>
+          <p className="mt-4 text-stone-500">Discover events with food accommodations across campus!</p>
+          <input type="text" placeholder="Search events!" className="w-64 border-1 bg-white p-2 rounded-2xl my-4"/>
+        </div>
+        <div className="mr-20 items-center">
+          {/* Event Creation Button */}
+          {!formVisible && (
+            <div className="flex justify-center items-center mb-10">
+              <button
+                onClick={() => setFormVisible(true)}
+                className="mx-auto mb-6 px-4 py-2 bg-white text-black rounded-xl shadow hover:bg-gray-100 transition"
+              >
+                + Create Event
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      
 
-      {!formVisible ? (
-        <button style={styles.createButton} onClick={() => setFormVisible(true)}>
-          + Create Event
-        </button>
-      ) : (
-        <form style={styles.formContainer} onSubmit={handleSubmit}>
-          <h2 style={styles.formTitle}>Create an Event</h2>
+      {/* Event Form */}
+      {formVisible && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
+          <div className="bg-white/85 w-full max-w-lg rounded-2xl shadow-lg p-6 relative">
+            
+            {/* Close button */}
+            <button
+              onClick={() => setFormVisible(false)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
 
-          <input
-            type="text"
-            placeholder="Title"
-            value={title}
-            style={styles.input}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <textarea
-            placeholder="Description"
-            value={description}
-            style={styles.textarea}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <input
-            type="number"
-            placeholder="Capacity"
-            value={capacity}
-            style={styles.input}
-            onChange={(e) => setCapacity(e.target.value)}
-          />
-          <input
-            type="date"
-            placeholder="Date"
-            value={date}
-            style={styles.input}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <input
-            type="time"
-            placeholder="Start Time"
-            value={startTime}
-            style={styles.input}
-            onChange={(e) => setStartTime(e.target.value)}
-          />
-          <input
-            type="time"
-            placeholder="End Time"
-            value={endTime}
-            style={styles.input}
-            onChange={(e) => setEndTime(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Location"
-            value={location}
-            style={styles.input}
-            onChange={(e) => setLocation(e.target.value)}
-          />
+            <h2 className="text-xl font-semibold mb-4 text-center">Create an Event</h2>
 
-          <div style={styles.formButtons}>
-          <button type="button" style={styles.cancelButton} onClick={() => setFormVisible(false)}>Cancel</button>
-            <button type="submit" style={styles.submitButton}>Submit</button>
+            <form onSubmit={handleSubmit} className="space-y-3">
+
+              <input
+                type="text"
+                placeholder="Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2"
+              />
+
+              <textarea
+                placeholder="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 h-24"
+              />
+
+              <input
+                type="number"
+                placeholder="Capacity"
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2"
+              />
+
+              <input
+                type="date"
+                value={date}
+                placeholder="Date"
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2"
+              />
+
+              <input
+                type="time"
+                placeholder="Start Time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2"
+              />
+
+              <input
+                type="time"
+                placeholder="End Time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2"
+              />
+
+              <input
+                type="text"
+                placeholder="Location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2"
+              />
+
+              {/* Submit/Cancel Buttons */}
+              <div className="flex justify-center pt-3">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Submit
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       )}
 
+
+      {/* Popup */}
       {popupMessage && (
         <div
-          style={{
-            ...styles.popup,
-            backgroundColor: popupType === 'error' ? '#f8d7da' : '#d4edda',
-            color: popupType === 'error' ? '#721c24' : '#155724',
-            borderColor: popupType === 'error' ? '#f5c6cb' : '#c3e6cb',
-          }}
-          onClick={closePopup}
+          onClick={() => setPopupMessage("")}
+          className={`mx-auto mt-6 w-fit px-6 py-3 rounded-lg border cursor-pointer ${
+            popupType === "error"
+              ? "bg-red-100 text-red-700 border-red-300"
+              : "bg-green-100 text-green-700 border-green-300"
+          }`}
         >
           {popupMessage}
         </div>
       )}
 
-      {/* Events Display Section */}
-      <div style={styles.eventsSection}>
-        <h2 style={styles.sectionTitle}>Upcoming Events</h2>
-        
+      {/* List of Events */}
+      <div className="max-w-5xl mx-auto mt-14">
+        <h2 className="text-2xl font-semibold mb-6 text-center">
+          Upcoming Events
+        </h2>
+
         {loading ? (
-          <div style={styles.loadingContainer}>
-            <div style={styles.spinner}></div>
-            <p style={styles.loadingText}>Loading events...</p>
-          </div>
+          <p className="text-center text-gray-500">Loading events...</p>
         ) : error ? (
-          <div style={styles.errorContainer}>
-            <h3 style={styles.errorTitle}>Error Loading Events</h3>
-            <p style={styles.errorText}>{error}</p>
-            <button onClick={fetchEvents} style={styles.retryButton}>
+          <div className="bg-red-100 border border-red-300 p-6 rounded-lg text-center">
+            <p className="text-red-700 mb-3">{error}</p>
+            <button
+              onClick={fetchEvents}
+              className="bg-red-600 text-white px-4 py-2 rounded"
+            >
               Try Again
             </button>
           </div>
         ) : events.length === 0 ? (
-          <div style={styles.noEventsContainer}>
-            <p style={styles.noEventsText}>No events found. Create one to get started!</p>
-          </div>
+          <p className="text-gray-500 text-center">
+            No events found. Create one to get started!
+          </p>
         ) : (
-          <div style={styles.eventsGrid}>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {events.map((event) => (
-              <div key={event.id} style={styles.eventCard}>
-                <div style={styles.eventHeader}>
-                  <h3 style={styles.eventTitle}>{event.title}</h3>
-                  <span style={styles.capacityBadge}>
+              <div
+                key={event.id}
+                className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition"
+              >
+                <div className="flex justify-between mb-2">
+                  <h3 className="text-lg font-semibold">{event.title}</h3>
+                  <span className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full">
                     {event.capacity} spots
                   </span>
                 </div>
-                
-                <p style={styles.eventDescription}>{event.description}</p>
-                
-                <div style={styles.eventDetails}>
-                  <div style={styles.detailRow}>
-                    <svg style={styles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>{formatDate(event.event_date)}</span>
+
+                <p className="text-gray-600 mb-4">{event.description}</p>
+
+                <div className="space-y-2 text-sm text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <span>📅</span> {formatDate(event.event_date)}
                   </div>
-                  
-                  <div style={styles.detailRow}>
-                    <svg style={styles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
+                  <div className="flex items-center gap-2">
+                    <span>⏰</span> {formatTime(event.start_time)} –{" "}
+                    {formatTime(event.end_time)}
                   </div>
-                  
-                  <div style={styles.detailRow}>
-                    <svg style={styles.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span>{event.location}</span>
+                  <div className="flex items-center gap-2">
+                    <span>📍</span> {event.location}
                   </div>
                 </div>
               </div>
@@ -314,208 +328,3 @@ function EventsPage() {
     </div>
   );
 }
-
-const styles: { [key: string]: React.CSSProperties } = {
-  pageContainer: {
-    fontFamily: 'Segoe UI, sans-serif',
-    padding: '30px',
-    backgroundColor: '#f9fafb',
-    minHeight: '100vh',
-  },
-  pageTitle: {
-    fontSize: '32px',
-    marginBottom: '20px',
-    textAlign: 'center',
-  },
-  createButton: {
-    display: 'block',
-    margin: '0 auto 30px',
-    padding: '12px 24px',
-    fontSize: '16px',
-    backgroundColor: '#4f46e5',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  formContainer: {
-    maxWidth: '500px',
-    margin: '0 auto 40px',
-    padding: '25px',
-    backgroundColor: '#fff',
-    borderRadius: '10px',
-    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.1)',
-  },
-  formTitle: {
-    marginBottom: '20px',
-    textAlign: 'center',
-  },
-  input: {
-    width: '100%',
-    padding: '10px 12px',
-    marginBottom: '12px',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-    boxSizing: 'border-box',
-    color: '#374151',
-  },
-  textarea: {
-    width: '100%',
-    padding: '10px 12px',
-    marginBottom: '12px',
-    height: '100px',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-    resize: 'vertical' as const,
-    boxSizing: 'border-box',
-    color: '#374151',
-  },
-  formButtons: {
-    display: 'flex',
-    justifyContent: 'space-between',
-  },
-  submitButton: {
-    padding: '10px 20px',
-    backgroundColor: '#10b981',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  cancelButton: {
-    padding: '10px 20px',
-    backgroundColor: '#ef4444',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  popup: {
-    margin: '20px auto',
-    display: 'inline-block',
-    padding: '12px 20px',
-    borderRadius: '6px',
-    border: '1px solid',
-    cursor: 'pointer',
-    transition: 'opacity 0.3s ease',
-  },
-  eventsSection: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    marginTop: '40px',
-  },
-  sectionTitle: {
-    fontSize: '28px',
-    marginBottom: '24px',
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    textAlign: 'center',
-    padding: '60px 20px',
-  },
-  spinner: {
-    width: '64px',
-    height: '64px',
-    border: '4px solid #e5e7eb',
-    borderTop: '4px solid #4f46e5',
-    borderRadius: '50%',
-    margin: '0 auto 16px',
-    animation: 'spin 1s linear infinite',
-  },
-  loadingText: {
-    color: '#6b7280',
-  },
-  errorContainer: {
-    backgroundColor: '#fef2f2',
-    border: '1px solid #fecaca',
-    borderRadius: '8px',
-    padding: '24px',
-    maxWidth: '500px',
-    margin: '0 auto',
-    textAlign: 'center',
-  },
-  errorTitle: {
-    color: '#991b1b',
-    fontSize: '18px',
-    fontWeight: '600',
-    marginBottom: '8px',
-  },
-  errorText: {
-    color: '#dc2626',
-    marginBottom: '16px',
-  },
-  retryButton: {
-    padding: '8px 16px',
-    backgroundColor: '#dc2626',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  noEventsContainer: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    padding: '48px 24px',
-    textAlign: 'center',
-  },
-  noEventsText: {
-    color: '#6b7280',
-    fontSize: '18px',
-  },
-  eventsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-    gap: '20px',
-  },
-  eventCard: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    padding: '24px',
-    transition: 'box-shadow 0.3s ease',
-  },
-  eventHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '12px',
-  },
-  eventTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#111827',
-    margin: 0,
-  },
-  capacityBadge: {
-    backgroundColor: '#dbeafe',
-    color: '#1e40af',
-    fontSize: '12px',
-    padding: '4px 12px',
-    borderRadius: '12px',
-    whiteSpace: 'nowrap',
-  },
-  eventDescription: {
-    color: '#4b5563',
-    marginBottom: '16px',
-  },
-  eventDetails: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-  },
-  detailRow: {
-    display: 'flex',
-    alignItems: 'center',
-    color: '#374151',
-    fontSize: '14px',
-  },
-  icon: {
-    width: '20px',
-    height: '20px',
-    marginRight: '8px',
-    color: '#9ca3af',
-  },
-};
-
-export default EventsPage;

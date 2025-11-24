@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* Navbar */}
           <NavBar />
           {/* Page content */}
-          <div className="p-8">{children}</div>
+          <div className="bg-gradient-to-br from-stone-100 via-amber-50 to-rose-50 text-black" style={{ fontFamily: 'Georgia, serif' }}>{children}</div>
           <Footer />
         </AuthProvider>
       </body>

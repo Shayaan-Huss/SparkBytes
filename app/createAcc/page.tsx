@@ -36,7 +36,7 @@ export default function CreateAcc() {
     setLoading(false)
   }
   return (
-    <div className="flex flex-col justify-center items-center min-h-screen text-white bg-buGray">
+    <div className="flex flex-col justify-center items-center min-h-screen text-white">
       <div className="bg-buRed p-6 rounded-lg shadow-lg w-96">
         <h1 className="mb-4 text-center">Create an account for SparkBytes!</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
