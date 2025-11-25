@@ -30,6 +30,7 @@ export default function EventsPage() {
 
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState<'success' | 'error' | ''>('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -142,6 +143,16 @@ export default function EventsPage() {
       hour12: true,
     });
 
+  // Filter events based on search query
+  const filteredEvents = events.filter((event) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      event.title.toLowerCase().includes(query) ||
+      event.description.toLowerCase().includes(query) ||
+      event.location.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="min-h-screen px-6 py-10 text-black" style={{ fontFamily: 'Georgia, serif' }}>
       <div className="flex justify-between">
@@ -150,7 +161,13 @@ export default function EventsPage() {
             Find Free Food Events!
           </h1>
           <p className="mt-4 text-stone-500">Discover events with food accommodations across campus!</p>
-          <input type="text" placeholder="Search events!" className="w-64 border-1 bg-white p-2 rounded-2xl my-4"/>
+          <input 
+            type="text" 
+            placeholder="Search events!" 
+            className="w-64 border-1 bg-white p-2 rounded-2xl my-4"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="mr-20 items-center">
           {/* Event Creation Button */}
@@ -292,9 +309,13 @@ export default function EventsPage() {
           <p className="text-gray-500 text-center">
             No events found. Create one to get started!
           </p>
+        ) : filteredEvents.length === 0 ? (
+          <p className="text-gray-500 text-center">
+            No events match your search. Try a different query!
+          </p>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event) => (
+            {filteredEvents.map((event) => (
               <div
                 key={event.id}
                 className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition"
