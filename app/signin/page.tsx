@@ -33,7 +33,6 @@ export default function Signin() {
     if (error) {
       alert(error.message)
     } else {
-      alert('Sign in successful!')
       // redirect to home page after signing in
       router.push('/')
     }

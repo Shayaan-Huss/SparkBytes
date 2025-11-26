@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { supabase } from "../../lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 export default function NavBar() {
+  const router = useRouter();
   const pathname = usePathname();
 
   // hide navbar in signin/signup page
   const hideNavbar = pathname === "/signin" || pathname === "/createAcc";
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/signin");
+  };
 
   if (hideNavbar) return null;
   return ( 
@@ -20,7 +27,7 @@ export default function NavBar() {
         <li><Link href="/" className="text-black">Home</Link></li>
         {/* <li><Link href="/food" className="text-black">Food Listing</Link></li> */}
         <li><Link href="/events" className="text-black">Events</Link></li>
-        <li><Link href="/signin" className="text-black">Sign in!</Link></li>
+        <li><button onClick={handleSignOut} className="text-black hover: cursor-pointer">Sign out</button></li>
       </ul>
     </nav>
   );
