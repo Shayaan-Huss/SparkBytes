@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import Pagination from '@/components/Pagination';
 
 interface Event {
   id: string;
@@ -32,21 +33,26 @@ export default function EventsPage() {
   const [popupType, setPopupType] = useState<'success' | 'error' | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchEvents();
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  // number of events per page
+  const pageSize = 9;
 
-    // Subscribe to real-time changes
+  useEffect(() => {
+    fetchEvents(1, searchQuery);
+
     const channel = supabase
-      .channel('events-changes')
+      .channel("events-changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'events'
+          event: "*",
+          schema: "public",
+          table: "events",
         },
         () => {
-          fetchEvents();
+          fetchEvents(currentPage, searchQuery);
         }
       )
       .subscribe();
@@ -54,20 +60,43 @@ export default function EventsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchEvents = async () => {
+  // Re-fetch data when search changes
+  useEffect(() => {
+    fetchEvents(1, searchQuery);
+    setCurrentPage(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  const fetchEvents = async (page = 1, search = searchQuery) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .order('event_date', { ascending: true });
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = supabase
+        .from("events")
+        .select("*", { count: "exact" })
+        .order("event_date", { ascending: true });
+
+      if (search.trim() !== "") {
+        query = query.or(
+          `title.ilike.%${search}%,description.ilike.%${search}%,location.ilike.%${search}%`
+        );
+      }
+
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
 
       setEvents(data || []);
-      setError(null);
+      setTotalPages(Math.ceil((count || 0) / pageSize));
+      setCurrentPage(page);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch events.");
     } finally {
@@ -144,14 +173,14 @@ export default function EventsPage() {
     });
 
   // Filter events based on search query
-  const filteredEvents = events.filter((event) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      event.title.toLowerCase().includes(query) ||
-      event.description.toLowerCase().includes(query) ||
-      event.location.toLowerCase().includes(query)
-    );
-  });
+  // const filteredEvents = events.filter((event) => {
+  //   const query = searchQuery.toLowerCase();
+  //   return (
+  //     event.title.toLowerCase().includes(query) ||
+  //     event.description.toLowerCase().includes(query) ||
+  //     event.location.toLowerCase().includes(query)
+  //   );
+  // });
 
   return (
     <div className="min-h-screen px-6 py-10 text-black" style={{ fontFamily: 'Georgia, serif' }}>
@@ -299,23 +328,27 @@ export default function EventsPage() {
           <div className="bg-red-100 border border-red-300 p-6 rounded-lg text-center">
             <p className="text-red-700 mb-3">{error}</p>
             <button
-              onClick={fetchEvents}
+              onClick= {() => fetchEvents(currentPage, searchQuery)}
               className="bg-red-600 text-white px-4 py-2 rounded"
             >
               Try Again
             </button>
           </div>
-        ) : events.length === 0 ? (
+        ) : totalPages === 0 && searchQuery === "" ? (
           <p className="text-gray-500 text-center">
             No events found. Create one to get started!
           </p>
-        ) : filteredEvents.length === 0 ? (
+        ) : totalPages === 0 && searchQuery !== "" ? (
           <p className="text-gray-500 text-center">
             No events match your search. Try a different query!
           </p>
+        ) : events.length === 0 ? ( 
+            <p className="text-gray-500 text-center">
+              No events match your search.
+            </p> 
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map((event) => (
+            {events.map((event: Event) => (
               <div
                 key={event.id}
                 className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition"
@@ -345,6 +378,12 @@ export default function EventsPage() {
             ))}
           </div>
         )}
+        {/* Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => fetchEvents(page, searchQuery)}
+        />
       </div>
     </div>
   );
