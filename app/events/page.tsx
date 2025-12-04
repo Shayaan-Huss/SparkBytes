@@ -27,10 +27,7 @@ interface Event {
 
 export default function EventsPage() {
   const [formVisible, setFormVisible] = useState(false);
-  const [foodFormVisible, setFoodFormVisible] = useState(false);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-
-  // Event form states
+  const [includeFood, setIncludeFood] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [capacity, setCapacity] = useState('');
@@ -38,22 +35,16 @@ export default function EventsPage() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
-
-  // Food form states
   const [foodName, setFoodName] = useState('');
   const [dietaryRestrictions, setDietaryRestrictions] = useState('');
   const [quantity, setQuantity] = useState('');
   const [calorie, setCalorie] = useState('');
-
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState<'success' | 'error' | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 9;
@@ -63,104 +54,67 @@ export default function EventsPage() {
 
     const channel = supabase
       .channel("events-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "events",
-        },
-        () => {
-          fetchEvents(currentPage, searchQuery);
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
+        fetchEvents(currentPage, searchQuery);
+      })
       .subscribe();
 
     const foodChannel = supabase
       .channel("food-items-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "food_items",
-        },
-        () => {
-          fetchEvents(currentPage, searchQuery);
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "food_items" }, () => {
+        fetchEvents(currentPage, searchQuery);
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(foodChannel);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     fetchEvents(1, searchQuery);
     setCurrentPage(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const fetchEvents = async (page = 1, search = searchQuery) => {
     try {
       setLoading(true);
-
-      // First, fetch ALL events (without pagination) to search through food items
-      let query = supabase
-        .from("events")
-        .select("*")
-        .order("event_date", { ascending: true });
-
+      let query = supabase.from("events").select("*").order("event_date", { ascending: true });
       const { data, error } = await query;
-
       if (error) throw error;
 
-      // Fetch food items for each event
       let eventsWithFood = await Promise.all(
         (data || []).map(async (event) => {
-          const { data: foodData, error: foodError } = await supabase
+          const { data: foodData } = await supabase
             .from("food_items")
             .select("*")
             .eq("event_id", event.id);
-
-          if (foodError) console.error("Error fetching food items:", foodError);
-
-          return {
-            ...event,
-            food_items: foodData || [],
-          };
+          return { ...event, food_items: foodData || [] };
         })
       );
 
-      // Filter by search query (events + food items)
       if (search.trim() !== "") {
         eventsWithFood = eventsWithFood.filter((event) => {
-          const eventMatch =
-            event.title.toLowerCase().includes(search.toLowerCase()) ||
-            event.description.toLowerCase().includes(search.toLowerCase()) ||
-            event.location.toLowerCase().includes(search.toLowerCase());
-
-          const foodMatch = event.food_items.some(
-            (food) =>
-              food.food_name.toLowerCase().includes(search.toLowerCase()) ||
-              food.dietary_restrictions.toLowerCase().includes(search.toLowerCase())
+          const query = search.toLowerCase();
+          const matchesEvent =
+            event.title.toLowerCase().includes(query) ||
+            event.description.toLowerCase().includes(query) ||
+            event.location.toLowerCase().includes(query);
+          const matchesFood = event.food_items.some(
+            (f: { food_name: string; dietary_restrictions: string; }) =>
+              f.food_name.toLowerCase().includes(query) ||
+              f.dietary_restrictions.toLowerCase().includes(query)
           );
-
-          return eventMatch || foodMatch;
+          return matchesEvent || matchesFood;
         });
       }
 
-      // Now apply pagination to filtered results
-      const totalFilteredCount = eventsWithFood.length;
+      const total = eventsWithFood.length;
       const from = (page - 1) * pageSize;
       const to = from + pageSize;
-      const paginatedEvents = eventsWithFood.slice(from, to);
-
-      setEvents(paginatedEvents);
-      setTotalPages(Math.ceil(totalFilteredCount / pageSize));
+      setEvents(eventsWithFood.slice(from, to));
+      setTotalPages(Math.ceil(total / pageSize));
       setCurrentPage(page);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch events.");
@@ -179,14 +133,14 @@ export default function EventsPage() {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setPopupType("error");
-        setPopupMessage("You must be logged in to create an event.");
-        return;
-      }
+      // const { data: { user } } = await supabase.auth.getUser();
+      // if (!user) {
+      //   setPopupType("error");
+      //   setPopupMessage("You must be logged in to create an event.");
+      //   return;
+      // }
 
-      const { error } = await supabase.from("events").insert([
+      const { data, error } = await supabase.from("events").insert([
         {
           title,
           description,
@@ -195,16 +149,37 @@ export default function EventsPage() {
           start_time: startTime,
           end_time: endTime,
           capacity: parseInt(capacity),
-          creator_id: user.id,
+          // creator_id: user.id,
         },
-      ]);
+      ]).select();
 
       if (error) throw error;
+
+      const eventId = data?.[0]?.id;
+
+      if (includeFood && eventId) {
+        if (!foodName || !dietaryRestrictions || !quantity || !calorie) {
+          setPopupType("error");
+          setPopupMessage("Please complete all food fields.");
+          return;
+        }
+
+        const foodError = await supabase.from("food_items").insert([
+          {
+            event_id: eventId,
+            food_name: foodName,
+            dietary_restrictions: dietaryRestrictions,
+            quantity: parseInt(quantity),
+            calorie: parseInt(calorie),
+          },
+        ]);
+
+        if (foodError.error) throw foodError.error;
+      }
 
       setPopupType("success");
       setPopupMessage("Event created successfully!");
       setFormVisible(false);
-
       setTitle("");
       setDescription("");
       setCapacity("");
@@ -212,17 +187,42 @@ export default function EventsPage() {
       setStartTime("");
       setEndTime("");
       setLocation("");
-
+      setFoodName("");
+      setDietaryRestrictions("");
+      setQuantity("");
+      setCalorie("");
+      setIncludeFood(false);
       fetchEvents(1, searchQuery);
     } catch (err) {
       setPopupType("error");
-      setPopupMessage(
-        err instanceof Error ? err.message : "Failed to create event."
-      );
+      setPopupMessage(err instanceof Error ? err.message : "Failed to create event.");
     }
   };
 
-  
+  const handleReserveFood = async (foodId: number) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setPopupType("error");
+        setPopupMessage("You must be logged in to reserve food.");
+        return;
+      }
+
+      const { error } = await supabase.from("food_reservations").insert({
+        user_id: user.id,
+        food_id: foodId,
+        quantity_reserved: 1,
+      });
+
+      if (error) throw error;
+
+      setPopupType("success");
+      setPopupMessage("Food reserved successfully!");
+    } catch (err) {
+      setPopupType("error");
+      setPopupMessage("Failed to reserve food.");
+    }
+  };
 
   const formatDate = (str: string) =>
     new Date(str).toLocaleDateString("en-US", {
@@ -241,15 +241,14 @@ export default function EventsPage() {
 
   return (
     <div className="min-h-screen px-6 py-10 text-black" style={{ fontFamily: 'Georgia, serif' }}>
+      {/* Search + Create */}
       <div className="flex justify-between">
         <div>
-          <h1 className="justify-left bold text-5xl">
-            Find Free Food Events!
-          </h1>
+          <h1 className="justify-left bold text-5xl">Find Free Food Events!</h1>
           <p className="mt-4 text-stone-500">Discover events with food accommodations across campus!</p>
-          <input 
-            type="text" 
-            placeholder="Search events!" 
+          <input
+            type="text"
+            placeholder="Search events!"
             className="w-64 border-1 bg-white p-2 rounded-2xl my-4"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -269,97 +268,52 @@ export default function EventsPage() {
         </div>
       </div>
 
-      {/* Event Form */}
+      {/* Create Event Form */}
       {formVisible && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
-          <div className="bg-white/85 w-full max-w-lg rounded-2xl shadow-lg p-6 relative">
-            
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50 overflow-y-auto">
+          <div className="bg-white/85 w-full max-w-lg rounded-2xl shadow-lg p-6 relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setFormVisible(false)}
               className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
             >
               ✕
             </button>
-
             <h2 className="text-xl font-semibold mb-4 text-center">Create an Event</h2>
-
             <form onSubmit={handleEventSubmit} className="space-y-3">
+              <input type="text" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 h-24" />
+              <input type="number" placeholder="Capacity" value={capacity} onChange={(e) => setCapacity(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <input type="time" placeholder="Start Time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <input type="time" placeholder="End Time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <input type="text" placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
 
-              <input
-                type="text"
-                placeholder="Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2"
-              />
+              <label className="block text-sm font-medium mt-4">
+                <input type="checkbox" checked={includeFood} onChange={(e) => setIncludeFood(e.target.checked)} className="mr-2" />
+                Include food
+              </label>
 
-              <textarea
-                placeholder="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2 h-24"
-              />
-
-              <input
-                type="number"
-                placeholder="Capacity"
-                value={capacity}
-                onChange={(e) => setCapacity(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2"
-              />
-
-              <input
-                type="date"
-                value={date}
-                placeholder="Date"
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2"
-              />
-
-              <input
-                type="time"
-                placeholder="Start Time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2"
-              />
-
-              <input
-                type="time"
-                placeholder="End Time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2"
-              />
-
-              <input
-                type="text"
-                placeholder="Location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2"
-              />
+              {includeFood && (
+                <div className="space-y-3 pt-2">
+                  <input type="text" placeholder="Food name" value={foodName} onChange={(e) => setFoodName(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                  <input type="text" placeholder="Dietary restrictions" value={dietaryRestrictions} onChange={(e) => setDietaryRestrictions(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                  <input type="number" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                  <input type="number" placeholder="Calories" value={calorie} onChange={(e) => setCalorie(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                </div>
+              )}
 
               <div className="flex justify-center pt-3">
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  Submit
-                </button>
+                <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Submit</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      
-
-      {/* Popup */}
       {popupMessage && (
         <div
           onClick={() => setPopupMessage("")}
-          className={`mx-auto mt-6 w-fit px-6 py-3 rounded-lg border cursor-pointer ${
+          className={`fixed top-10 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-lg border cursor-pointer ${
             popupType === "error"
               ? "bg-red-100 text-red-700 border-red-300"
               : "bg-green-100 text-green-700 border-green-300"
@@ -369,90 +323,46 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* List of Events */}
       <div className="max-w-6xl mx-auto mt-14">
-        <h2 className="text-2xl font-semibold mb-6 text-center">
-          Upcoming Events
-        </h2>
-
+        <h2 className="text-2xl font-semibold mb-6 text-center">Upcoming Events</h2>
         {loading ? (
           <p className="text-center text-gray-500">Loading events...</p>
         ) : error ? (
           <div className="bg-red-100 border border-red-300 p-6 rounded-lg text-center">
             <p className="text-red-700 mb-3">{error}</p>
-            <button
-              onClick={() => fetchEvents(currentPage, searchQuery)}
-              className="bg-red-600 text-white px-4 py-2 rounded"
-            >
-              Try Again
-            </button>
+            <button onClick={() => fetchEvents(currentPage, searchQuery)} className="bg-red-600 text-white px-4 py-2 rounded">Try Again</button>
           </div>
-        ) : totalPages === 0 && searchQuery === "" ? (
-          <p className="text-gray-500 text-center">
-            No events found. Create one to get started!
-          </p>
-        ) : totalPages === 0 && searchQuery !== "" ? (
-          <p className="text-gray-500 text-center">
-            No events match your search. Try a different query!
-          </p>
-        ) : events.length === 0 ? ( 
-            <p className="text-gray-500 text-center">
-              No events match your search.
-            </p> 
         ) : (
           <div className="space-y-8">
             {events.map((event: Event) => (
-              <div
-                key={event.id}
-                className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition"
-              >
-                {/* Event Header */}
+              <div key={event.id} className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-2xl font-semibold mb-2">{event.title}</h3>
                     <p className="text-gray-600 mb-4">{event.description}</p>
                   </div>
-                  <span className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full">
-                    {event.capacity} spots
-                  </span>
+                  <span className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full">{event.capacity} spots</span>
                 </div>
 
                 <div className="space-y-2 text-sm text-gray-700 mb-6 grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <span>📅</span> {formatDate(event.event_date)}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>⏰</span> {formatTime(event.start_time)} – {formatTime(event.end_time)}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>📍</span> {event.location}
-                  </div>
+                  <div className="flex items-center gap-2"><span>📅</span> {formatDate(event.event_date)}</div>
+                  <div className="flex items-center gap-2"><span>⏰</span> {formatTime(event.start_time)} – {formatTime(event.end_time)}</div>
+                  <div className="flex items-center gap-2"><span>📍</span> {event.location}</div>
                 </div>
 
-                {/* Food Items Section */}
                 <div className="border-t pt-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-lg font-semibold">Food Items</h4>
-                    
-                  </div>
-
+                  <h4 className="text-lg font-semibold mb-4">Food Items</h4>
                   {event.food_items && event.food_items.length > 0 ? (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {event.food_items.map((food: FoodItem) => (
-                        <div
-                          key={food.id}
-                          className="bg-gray-50 p-4 rounded-lg border border-gray-200"
-                        >
+                      {event.food_items.map((food) => (
+                        <div key={food.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                           <div className="flex justify-between items-start mb-2">
                             <h5 className="font-semibold">{food.food_name}</h5>
-                            <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
-                              {food.quantity} available
-                            </span>
+                            <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">{food.quantity} available</span>
                           </div>
-                          <p className="text-sm text-gray-600 mb-3">{food.dietary_restrictions}</p>
-                          <div className="flex items-center gap-2 text-sm text-gray-700">
-                            <span>🔥</span> {food.calorie} calories
-                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{food.dietary_restrictions}</p>
+                          <div className="text-sm text-gray-700 mb-2">🔥 {food.calorie} calories</div>
+                          <button onClick={() => handleReserveFood(food.id)} className="mt-2 text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">Reserve</button>
                         </div>
                       ))}
                     </div>
@@ -464,13 +374,7 @@ export default function EventsPage() {
             ))}
           </div>
         )}
-
-        {/* Pagination */}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={(page) => fetchEvents(page, searchQuery)}
-        />
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(page) => fetchEvents(page, searchQuery)} />
       </div>
     </div>
   );
