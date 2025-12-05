@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import Pagination from '@/components/Pagination';
+import { EventCard } from '@/components/EventCard';
 
 interface FoodItem {
   id: number;
@@ -310,6 +311,7 @@ export default function EventsPage() {
         </div>
       )}
 
+      {/* Popup */}
       {popupMessage && (
         <div
           onClick={() => setPopupMessage("")}
