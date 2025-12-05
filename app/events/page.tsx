@@ -133,12 +133,12 @@ export default function EventsPage() {
     }
 
     try {
-      // const { data: { user } } = await supabase.auth.getUser();
-      // if (!user) {
-      //   setPopupType("error");
-      //   setPopupMessage("You must be logged in to create an event.");
-      //   return;
-      // }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setPopupType("error");
+        setPopupMessage("You must be logged in to create an event.");
+        return;
+      }
 
       const { data, error } = await supabase.from("events").insert([
         {
@@ -149,7 +149,7 @@ export default function EventsPage() {
           start_time: startTime,
           end_time: endTime,
           capacity: parseInt(capacity),
-          // creator_id: user.id,
+          creator_id: user.id,
         },
       ]).select();
 
