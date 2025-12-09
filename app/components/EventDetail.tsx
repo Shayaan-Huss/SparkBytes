@@ -24,9 +24,36 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
         <h2 className="text-xl font-semibold mb-4 text-center">
           {event.title}
         </h2>
-        <p className="text-gray-600 text-center">
-          Placeholder content for event detail modal.
-        </p>
+        {/* Event Info */}
+        <div className="space-y-4 text-gray-700 mt-4">
+          <div>
+            {/* Description */}
+            <p className="font-medium">Description:</p>
+            <p>{event.description || "No description provided."}</p>
+          </div>
+          <div>
+            {/* Location */}
+            <p className="font-medium">Location:</p>
+            <p>{event.location}</p>
+          </div>
+          <div>
+            {/* Date */}
+            <p className="font-medium">Date:</p>
+            <p>{event.event_date}</p>
+          </div>
+          <div>
+            {/* Time */}
+            <p className="font-medium">Time:</p>
+            <p>
+              {event.start_time} - {event.end_time}
+            </p>
+          </div>
+          <div>
+            {/* Spot */}
+            <p className="font-medium">Remaining Spot:</p>
+            <p>{event.capacity} spots</p>
+          </div>
+        </div>
       </div>
     </div>
   );
