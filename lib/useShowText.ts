@@ -5,7 +5,7 @@ export function useShowText() {
 
   const showText = (text: string, type: "success" | "error") => {
     setPopup({ text, type });
-    setTimeout(() => setPopup(null), 2000);
+    setTimeout(() => setPopup(null), 1000);
   };
 
   return { popup, showText };
