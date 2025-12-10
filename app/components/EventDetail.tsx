@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Event } from "../../types/event";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
@@ -74,7 +74,7 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
   };
 
   const handleClose = () => {
-    // Clear temp selection; quantities will be recalculated next time modal opens
+    // Clear temp selection, quantities will be recalculated next time modal opens
     setTempReservedFood({});
     onClose();
   };
@@ -392,7 +392,7 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
               const isSaved = !!savedReservedFood[item.id];
               const isTemp = !!tempReservedFood[item.id];
               const isReserved = isSaved || isTemp;
-              const remaining = foodQuantities[item.id] ?? item.quantity;
+              const remainingFood = foodQuantities[item.id] ?? item.quantity;
 
               return (
                 <div
@@ -401,11 +401,24 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
                     isReserved ? "border-blue-500 shadow-md" : "border-gray-300"
                   }`}
                 >
-                  {/* Item Header */}
-                  <div className="flex justify-between items-center">
-                    <p className="font-semibold">{item.food_name}</p>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                      {remaining} left
+                  {/* Item Header: Name, Total, and Remaining */}
+                  <div className="flex justify-between items-center mb-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{item.food_name}</p>
+                      {/* Total Quantity moved here */}
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                        Total: {item.quantity}
+                      </span>
+                    </div>
+                    
+                    {/* Remaining Count */}
+                    <span
+                      className={
+                        "inline-block text-xs px-3 py-1 rounded-full font-medium ml-2 shrink-0 " +
+                        getBadgeClass(remainingFood, item.quantity)
+                      }
+                    >
+                      {remainingFood} left
                     </span>
                   </div>
 

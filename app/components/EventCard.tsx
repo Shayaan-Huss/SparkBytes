@@ -70,8 +70,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
                 >
                   <div className="flex justify-between items-start mb-2">
                     <h5 className="font-semibold">{food.food_name}</h5>
-                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
-                      {food.quantity} available
+                    <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
+                      Total Quantity: {food.quantity}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{food.dietary_restrictions}</p>
