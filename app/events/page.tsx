@@ -270,7 +270,7 @@ export default function EventsPage() {
             Find Free Food Events!
           </h1>
           <p className="mt-4 text-stone-500">Discover events with food accommodations across campus!</p>
-          {/* New badge showing filtered events */}
+          {/* badge showing filtered events */}
           <div className="mt-2 inline-block bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full">
             ✅ Showing only available events • Auto-hide expired/fully booked
           </div>

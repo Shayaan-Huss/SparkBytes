@@ -18,7 +18,7 @@ export default function NavBar() {
 
   if (hideNavbar) return null;
   return ( 
-    <nav className="w-full flex justify-between items-center bg-white shadow p-4 border-b-5">
+    <nav className="w-full flex justify-between items-center bg-white shadow p-4 border-b-4 border-stone-100">
       <span className="text-3xl text-stone-800 italic" style={{ fontFamily: 'Georgia, serif' }}>
         Spark!Bytes
       </span>
