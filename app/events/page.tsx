@@ -1,7 +1,10 @@
+// app/events/page.tsx - FINAL VERSION
 "use client";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import Pagination from '@/components/Pagination';
+import { EventCard } from '@/components/EventCard';
+import { shouldShowEvent } from '@/lib/eventUtils';
 
 interface FoodItem {
   id: number;
@@ -27,7 +30,9 @@ interface Event {
 
 export default function EventsPage() {
   const [formVisible, setFormVisible] = useState(false);
-  const [includeFood, setIncludeFood] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  // Event form states
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [capacity, setCapacity] = useState('');
@@ -35,16 +40,22 @@ export default function EventsPage() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
+
+  // Food form states
+  const [includeFood, setIncludeFood] = useState(false);
   const [foodName, setFoodName] = useState('');
   const [dietaryRestrictions, setDietaryRestrictions] = useState('');
   const [quantity, setQuantity] = useState('');
   const [calorie, setCalorie] = useState('');
+
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState<'success' | 'error' | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 9;
@@ -52,39 +63,40 @@ export default function EventsPage() {
   useEffect(() => {
     fetchEvents(1, searchQuery);
 
-    const channel = supabase
-      .channel("events-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
-        fetchEvents(currentPage, searchQuery);
-      })
-      .subscribe();
-
-    const foodChannel = supabase
-      .channel("food-items-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "food_items" }, () => {
-        fetchEvents(currentPage, searchQuery);
-      })
-      .subscribe();
+    const channels = [
+      supabase.channel("events-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEvents(currentPage, searchQuery))
+        .subscribe(),
+      supabase.channel("food-items-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "food_items" }, () => fetchEvents(currentPage, searchQuery))
+        .subscribe(),
+      supabase.channel("food-reservations-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "food_reservations" }, () => fetchEvents(currentPage, searchQuery))
+        .subscribe(),
+      supabase.channel("event-registrations-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "event_registrations" }, () => fetchEvents(currentPage, searchQuery))
+        .subscribe(),
+    ];
 
     return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(foodChannel);
+      channels.forEach((ch) => supabase.removeChannel(ch));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     fetchEvents(1, searchQuery);
     setCurrentPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const fetchEvents = async (page = 1, search = searchQuery) => {
     try {
       setLoading(true);
-      let query = supabase.from("events").select("*").order("event_date", { ascending: true });
-      const { data, error } = await query;
+      const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: true });
       if (error) throw error;
 
-      let eventsWithFood = await Promise.all(
+      const eventsWithFood = await Promise.all(
         (data || []).map(async (event) => {
           const { data: foodData } = await supabase
             .from("food_items")
@@ -94,27 +106,34 @@ export default function EventsPage() {
         })
       );
 
-      if (search.trim() !== "") {
-        eventsWithFood = eventsWithFood.filter((event) => {
-          const query = search.toLowerCase();
-          const matchesEvent =
-            event.title.toLowerCase().includes(query) ||
-            event.description.toLowerCase().includes(query) ||
-            event.location.toLowerCase().includes(query);
-          const matchesFood = event.food_items.some(
-            (f: { food_name: string; dietary_restrictions: string; }) =>
-              f.food_name.toLowerCase().includes(query) ||
-              f.dietary_restrictions.toLowerCase().includes(query)
-          );
-          return matchesEvent || matchesFood;
-        });
+      const activeEvents = [];
+      for (const event of eventsWithFood) {
+        if (await shouldShowEvent(event)) {
+          activeEvents.push(event);
+        }
       }
 
-      const total = eventsWithFood.length;
+      const filteredEvents = search.trim()
+        ? activeEvents.filter((event) => {
+            const matchEvent =
+              event.title.toLowerCase().includes(search.toLowerCase()) ||
+              event.description.toLowerCase().includes(search.toLowerCase()) ||
+              event.location.toLowerCase().includes(search.toLowerCase());
+
+            const matchFood = event.food_items.some(
+              (f: FoodItem) =>
+                f.food_name.toLowerCase().includes(search.toLowerCase()) ||
+                f.dietary_restrictions.toLowerCase().includes(search.toLowerCase())
+            );
+
+            return matchEvent || matchFood;
+          })
+        : activeEvents;
+
       const from = (page - 1) * pageSize;
       const to = from + pageSize;
-      setEvents(eventsWithFood.slice(from, to));
-      setTotalPages(Math.ceil(total / pageSize));
+      setEvents(filteredEvents.slice(from, to));
+      setTotalPages(Math.ceil(filteredEvents.length / pageSize));
       setCurrentPage(page);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch events.");
@@ -180,6 +199,7 @@ export default function EventsPage() {
       setPopupType("success");
       setPopupMessage("Event created successfully!");
       setFormVisible(false);
+
       setTitle("");
       setDescription("");
       setCapacity("");
@@ -187,11 +207,13 @@ export default function EventsPage() {
       setStartTime("");
       setEndTime("");
       setLocation("");
-      setFoodName("");
-      setDietaryRestrictions("");
-      setQuantity("");
-      setCalorie("");
+
       setIncludeFood(false);
+      setFoodName('');
+      setDietaryRestrictions('');
+      setQuantity('');
+      setCalorie('');
+
       fetchEvents(1, searchQuery);
     } catch (err) {
       setPopupType("error");
@@ -199,27 +221,97 @@ export default function EventsPage() {
     }
   };
 
-  const formatDate = (str: string) =>
-    new Date(str).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-
-  const formatTime = (t: string) =>
-    new Date(`2000-01-01T${t}`).toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-
   return (
     <div className="min-h-screen px-6 py-10 text-black" style={{ fontFamily: 'Georgia, serif' }}>
-      {/* Same UI, unchanged above */}
+      <div className="flex justify-between">
+        <div>
+          <h1 className="justify-left bold text-5xl">Find Free Food Events!</h1>
+          <p className="mt-4 text-stone-500">Discover events with food accommodations across campus!</p>
+          <div className="mt-2 inline-block bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full">
+            ✅ Showing only available events • Auto-hide expired/fully booked
+          </div>
+          <input
+            type="text"
+            placeholder="Search events!"
+            className="w-64 border-1 bg-white p-2 rounded-2xl my-4 block"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="mr-20 items-center">
+          {!formVisible && (
+            <div className="flex justify-center items-center mb-10">
+              <button
+                onClick={() => setFormVisible(true)}
+                className="mx-auto mb-6 px-4 py-2 bg-white text-black rounded-xl shadow hover:bg-gray-100 transition"
+              >
+                + Create Event
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
+      {/* Event Creation Form */}
+      {formVisible && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50 overflow-y-auto">
+          <div className="bg-white/85 w-full max-w-lg rounded-2xl shadow-lg p-6 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setFormVisible(false)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-center">Create an Event</h2>
+
+            <form onSubmit={handleEventSubmit} className="space-y-3">
+              <input type="text" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 h-24" />
+              <input type="number" placeholder="Capacity" value={capacity} onChange={(e) => setCapacity(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <input type="time" placeholder="Start Time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <input type="time" placeholder="End Time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+              <input type="text" placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+
+              <label className="block text-sm font-medium mt-4">
+                <input type="checkbox" checked={includeFood} onChange={(e) => setIncludeFood(e.target.checked)} className="mr-2" />
+                Include food
+              </label>
+
+              {includeFood && (
+                <div className="space-y-3 pt-2">
+                  <input type="text" placeholder="Food name" value={foodName} onChange={(e) => setFoodName(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                  <input type="text" placeholder="Dietary restrictions" value={dietaryRestrictions} onChange={(e) => setDietaryRestrictions(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                  <input type="number" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                  <input type="number" placeholder="Calories" value={calorie} onChange={(e) => setCalorie(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                </div>
+              )}
+
+              <div className="flex justify-center pt-3">
+                <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Submit</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Popup */}
+      {popupMessage && (
+        <div
+          onClick={() => setPopupMessage("")}
+          className={`mx-auto mt-6 w-fit px-6 py-3 rounded-lg border cursor-pointer ${
+            popupType === "error"
+              ? "bg-red-100 text-red-700 border-red-300"
+              : "bg-green-100 text-green-700 border-green-300"
+          }`}
+        >
+          {popupMessage}
+        </div>
+      )}
+
+      {/* Event List */}
       <div className="max-w-6xl mx-auto mt-14">
-        <h2 className="text-2xl font-semibold mb-6 text-center">Upcoming Events</h2>
+        <h2 className="text-2xl font-semibold mb-6 text-center">Available Events</h2>
         {loading ? (
           <p className="text-center text-gray-500">Loading events...</p>
         ) : error ? (
@@ -227,44 +319,12 @@ export default function EventsPage() {
             <p className="text-red-700 mb-3">{error}</p>
             <button onClick={() => fetchEvents(currentPage, searchQuery)} className="bg-red-600 text-white px-4 py-2 rounded">Try Again</button>
           </div>
+        ) : events.length === 0 ? (
+          <p className="text-gray-500 text-center">No events found.</p>
         ) : (
           <div className="space-y-8">
             {events.map((event: Event) => (
-              <div key={event.id} className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-2xl font-semibold mb-2">{event.title}</h3>
-                    <p className="text-gray-600 mb-4">{event.description}</p>
-                  </div>
-                  <span className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full">{event.capacity} spots</span>
-                </div>
-
-                <div className="space-y-2 text-sm text-gray-700 mb-6 grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2"><span>📅</span> {formatDate(event.event_date)}</div>
-                  <div className="flex items-center gap-2"><span>⏰</span> {formatTime(event.start_time)} – {formatTime(event.end_time)}</div>
-                  <div className="flex items-center gap-2"><span>📍</span> {event.location}</div>
-                </div>
-
-                <div className="border-t pt-6">
-                  <h4 className="text-lg font-semibold mb-4">Food Items</h4>
-                  {event.food_items && event.food_items.length > 0 ? (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {event.food_items.map((food) => (
-                        <div key={food.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                          <div className="flex justify-between items-start mb-2">
-                            <h5 className="font-semibold">{food.food_name}</h5>
-                            <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">{food.quantity} available</span>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">{food.dietary_restrictions}</p>
-                          <div className="text-sm text-gray-700 mb-2">🔥 {food.calorie} calories</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No food items added yet.</p>
-                  )}
-                </div>
-              </div>
+              <EventCard key={event.id} event={event} />
             ))}
           </div>
         )}
