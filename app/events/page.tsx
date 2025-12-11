@@ -1,8 +1,10 @@
+// app/events/page.tsx - UPDATED VERSION
 "use client";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import Pagination from '@/components/Pagination';
 import { EventCard } from '@/components/EventCard';
+import { shouldShowEvent } from '@/lib/eventUtils';
 
 interface FoodItem {
   id: number;
@@ -28,7 +30,6 @@ interface Event {
 
 export default function EventsPage() {
   const [formVisible, setFormVisible] = useState(false);
-  const [foodFormVisible, setFoodFormVisible] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   // Event form states
@@ -39,12 +40,6 @@ export default function EventsPage() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
-
-  // Food form states
-  const [foodName, setFoodName] = useState('');
-  const [dietaryRestrictions, setDietaryRestrictions] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [calorie, setCalorie] = useState('');
 
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,9 +87,43 @@ export default function EventsPage() {
       )
       .subscribe();
 
+    // Listen to food reservations changes to update availability in real-time
+    const reservationsChannel = supabase
+      .channel("food-reservations-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "food_reservations",
+        },
+        () => {
+          fetchEvents(currentPage, searchQuery);
+        }
+      )
+      .subscribe();
+
+    // Listen to event registrations to update capacity
+    const registrationsChannel = supabase
+      .channel("event-registrations-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "event_registrations",
+        },
+        () => {
+          fetchEvents(currentPage, searchQuery);
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(foodChannel);
+      supabase.removeChannel(reservationsChannel);
+      supabase.removeChannel(registrationsChannel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -109,7 +138,7 @@ export default function EventsPage() {
     try {
       setLoading(true);
 
-      // First, fetch ALL events (without pagination) to search through food items
+      // Fetch ALL events
       let query = supabase
         .from("events")
         .select("*")
@@ -136,29 +165,39 @@ export default function EventsPage() {
         })
       );
 
+      // ⭐ FILTER OUT EXPIRED AND FULLY BOOKED EVENTS ⭐
+      const activeEvents = [];
+      for (const event of eventsWithFood) {
+        const isVisible = await shouldShowEvent(event);
+        if (isVisible) {
+          activeEvents.push(event);
+        }
+      }
+
       // Filter by search query (events + food items)
+      let filteredEvents = activeEvents;
       if (search.trim() !== "") {
-        eventsWithFood = eventsWithFood.filter((event) => {
+        filteredEvents = activeEvents.filter((event) => {
           const eventMatch =
             event.title.toLowerCase().includes(search.toLowerCase()) ||
             event.description.toLowerCase().includes(search.toLowerCase()) ||
             event.location.toLowerCase().includes(search.toLowerCase());
 
-          const foodMatch = event.food_items.some(
-            (food) =>
-              food.food_name.toLowerCase().includes(search.toLowerCase()) ||
-              food.dietary_restrictions.toLowerCase().includes(search.toLowerCase())
-          );
+            const foodMatch = event.food_items.some(
+              (food: FoodItem) =>
+                food.food_name.toLowerCase().includes(search.toLowerCase()) ||
+                food.dietary_restrictions.toLowerCase().includes(search.toLowerCase())
+            );
 
           return eventMatch || foodMatch;
         });
       }
 
       // Now apply pagination to filtered results
-      const totalFilteredCount = eventsWithFood.length;
+      const totalFilteredCount = filteredEvents.length;
       const from = (page - 1) * pageSize;
       const to = from + pageSize;
-      const paginatedEvents = eventsWithFood.slice(from, to);
+      const paginatedEvents = filteredEvents.slice(from, to);
 
       setEvents(paginatedEvents);
       setTotalPages(Math.ceil(totalFilteredCount / pageSize));
@@ -231,10 +270,14 @@ export default function EventsPage() {
             Find Free Food Events!
           </h1>
           <p className="mt-4 text-stone-500">Discover events with food accommodations across campus!</p>
+          {/* New badge showing filtered events */}
+          <div className="mt-2 inline-block bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full">
+            ✅ Showing only available events • Auto-hide expired/fully booked
+          </div>
           <input 
             type="text" 
             placeholder="Search events!" 
-            className="w-64 border-1 bg-white p-2 rounded-2xl my-4"
+            className="w-64 border-1 bg-white p-2 rounded-2xl my-4 block"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -253,7 +296,7 @@ export default function EventsPage() {
         </div>
       </div>
 
-      {/* Event Form */}
+      {/* Event Form - Same as before */}
       {formVisible && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
           <div className="bg-white/85 w-full max-w-lg rounded-2xl shadow-lg p-6 relative">
@@ -354,7 +397,7 @@ export default function EventsPage() {
       {/* List of Events */}
       <div className="max-w-6xl mx-auto mt-14">
         <h2 className="text-2xl font-semibold mb-6 text-center">
-          Upcoming Events
+          Available Events
         </h2>
 
         {loading ? (
@@ -370,9 +413,14 @@ export default function EventsPage() {
             </button>
           </div>
         ) : totalPages === 0 && searchQuery === "" ? (
-          <p className="text-gray-500 text-center">
-            No events found. Create one to get started!
-          </p>
+          <div className="text-center">
+            <p className="text-gray-500 mb-2">
+              No active events found.
+            </p>
+            <p className="text-sm text-gray-400">
+              All events are either expired or fully booked. Check back later for new events!
+            </p>
+          </div>
         ) : totalPages === 0 && searchQuery !== "" ? (
           <p className="text-gray-500 text-center">
             No events match your search. Try a different query!

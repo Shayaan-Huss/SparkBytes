@@ -1,7 +1,9 @@
+// app/components/EventCard.tsx
 "use client";
 import React, { useState } from 'react';
 import { Event, FoodItem } from '../../types/event';
 import { EventDetail } from './EventDetail';
+import FoodAvailabilityNotification from './FoodAvailabilityNotification';
 
 interface EventCardProps {
   event: Event;
@@ -28,10 +30,12 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
   return (
     <>
       <div
-        className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition" 
-        // onclick event card to open event detail page
+        className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition cursor-pointer" 
         onClick={() => setIsDetailOpen(true)}
       >
+        {/* Food Availability Notification - Added at the top */}
+        <FoodAvailabilityNotification event={event} />
+
         {/* Event Header */}
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -71,7 +75,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
                   <div className="flex justify-between items-start mb-2">
                     <h5 className="font-semibold">{food.food_name}</h5>
                     <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
-                      Total Quantity: {food.quantity}
+                      Total: {food.quantity}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{food.dietary_restrictions}</p>
