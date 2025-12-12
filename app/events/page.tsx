@@ -221,20 +221,6 @@ export default function EventsPage() {
     }
   };
 
-  const formatDate = (str: string) =>
-    new Date(str).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-
-  const formatTime = (t: string) =>
-    new Date(`2000-01-01T${t}`).toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
 
   return (
     <div className="min-h-screen px-6 py-10 text-black" style={{ fontFamily: 'Georgia, serif' }}>
