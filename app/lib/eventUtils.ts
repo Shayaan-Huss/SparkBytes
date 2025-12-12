@@ -1,14 +1,14 @@
-// lib/eventUtils.ts
+// app/lib/eventUtils.ts
 import { Event, FoodItem } from '../../types/event';
 import { supabase } from '../../lib/supabaseClient';
 
 /**
- * Check if event time has passed (uses end_time)
+ * Check if event time has passed (uses START_TIME now!)
  */
-export function isEventExpired(eventDate: string, endTime: string): boolean {
-  const eventDateTime = new Date(`${eventDate}T${endTime}`);
+export function isEventExpired(eventDate: string, startTime: string): boolean {
+  const eventStartDateTime = new Date(`${eventDate}T${startTime}`);
   const now = new Date();
-  return eventDateTime < now;
+  return eventStartDateTime < now;
 }
 
 /**
@@ -31,11 +31,11 @@ export function isCapacityReached(capacity: number, registrationCount: number): 
 
 /**
  * Main function: Check if event should be visible
- * Event is hidden if: time has passed OR all food is reserved OR capacity reached
+ * Event is hidden if: START TIME has passed OR all food is reserved OR capacity reached
  */
 export async function shouldShowEvent(event: Event): Promise<boolean> {
-  // Check 1: Is event expired?
-  const timeValid = !isEventExpired(event.event_date, event.end_time);
+  // Check 1: Has event started? (using START_TIME)
+  const timeValid = !isEventExpired(event.event_date, event.start_time);
   if (!timeValid) return false;
   
   // Check 2: Are all food items reserved?

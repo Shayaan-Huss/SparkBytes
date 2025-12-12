@@ -220,25 +220,41 @@ export default function EventsPage() {
   const handleEventSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(''); // Clear previous errors
-
+  
     if (!title || !description || !capacity || !date || !startTime || !endTime || !location) {
       setFormError('Please fill in all event fields.');
       return;
     }
-
+  
+    // ⭐ NEW: Validate event is not in the past
+    const eventStartDateTime = new Date(`${date}T${startTime}`);
+    const now = new Date();
+    
+    if (eventStartDateTime < now) {
+      setFormError('❌ Cannot create events with past start times!');
+      return;
+    }
+    
+    // ⭐ NEW: Validate end time is after start time
+    const eventEndDateTime = new Date(`${date}T${endTime}`);
+    if (eventEndDateTime <= eventStartDateTime) {
+      setFormError('❌ End time must be after start time!');
+      return;
+    }
+  
     // If food checkbox is checked, validate required food fields
     if (includeFood && (!foodName || !quantity)) {
       setFormError('Please complete all required food fields (food name, quantity).');
       return;
     }
-
+  
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setFormError("You must be logged in to create an event.");
         return;
       }
-
+  
       const { data, error } = await supabase.from("events").insert([
         {
           title,
@@ -251,11 +267,11 @@ export default function EventsPage() {
           creator_id: user.id,
         },
       ]).select();
-
+  
       if (error) throw error;
-
+  
       const eventId = data?.[0]?.id;
-
+  
       // Add food item if checkbox is checked
       if (includeFood && eventId) {
         const foodError = await supabase.from("food_items").insert([
@@ -267,15 +283,15 @@ export default function EventsPage() {
             calorie: calorie ? parseInt(calorie) : 0,
           },
         ]);
-
+  
         if (foodError.error) throw foodError.error;
       }
-
+  
       setPopupType("success");
       setPopupMessage("Event created successfully!");
       setFormVisible(false);
       setFormError(''); // Clear form error on success
-
+  
       setTitle("");
       setDescription("");
       setCapacity("");
@@ -283,14 +299,14 @@ export default function EventsPage() {
       setStartTime("");
       setEndTime("");
       setLocation("");
-
+  
       // Reset food form states
       setIncludeFood(false);
       setFoodName('');
       setDietaryRestrictions('');
       setQuantity('');
       setCalorie('');
-
+  
       fetchEvents(1, searchQuery);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to create event.");
