@@ -10,7 +10,7 @@ interface EventCardProps {
 }
 
 const formatDate = (str: string) =>
-  new Date(str).toLocaleDateString("en-US", {
+  new Date(str + 'T00:00:00').toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
