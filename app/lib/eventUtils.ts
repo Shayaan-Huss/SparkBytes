@@ -23,7 +23,6 @@ export function areAllFoodItemsReserved(foodItems: FoodItem[]): boolean {
 
 /**
  * Check if event capacity is reached
- * (Need to pass registration count from DB)
  */
 export function isCapacityReached(capacity: number, registrationCount: number): boolean {
   return registrationCount >= capacity;
@@ -40,7 +39,6 @@ export async function shouldShowEvent(event: Event): Promise<boolean> {
   
   // Check 2: Are all food items reserved?
   if (event.food_items && event.food_items.length > 0) {
-    // Fetch real-time food reservations to get accurate remaining quantities
     const remainingQuantities = await getRemainingFoodQuantities(event.id, event.food_items);
     const allFoodReserved = remainingQuantities.every(qty => qty <= 0);
     if (allFoodReserved) return false;
@@ -59,13 +57,12 @@ export async function shouldShowEvent(event: Event): Promise<boolean> {
 }
 
 /**
- * Get remaining quantities for all food items (real-time from DB)
+ * Get remaining quantities for all food items
  */
 export async function getRemainingFoodQuantities(
   eventId: string, 
   foodItems: FoodItem[]
 ): Promise<number[]> {
-  // Fetch all food reservations for this event
   const { data: reservations, error } = await supabase
     .from('food_reservations')
     .select('food_id')
@@ -76,13 +73,11 @@ export async function getRemainingFoodQuantities(
     return foodItems.map(item => item.quantity);
   }
   
-  // Count reservations per food item
   const reservationCounts: Record<number, number> = {};
   (reservations || []).forEach((res: { food_id: number }) => {
     reservationCounts[res.food_id] = (reservationCounts[res.food_id] || 0) + 1;
   });
   
-  // Calculate remaining quantities
   return foodItems.map(item => {
     const reserved = reservationCounts[item.id] || 0;
     return Math.max(0, item.quantity - reserved);

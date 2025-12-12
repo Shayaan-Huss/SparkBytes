@@ -1,4 +1,4 @@
-// app/events/page.tsx - UPDATED VERSION WITH FOOD CREATION
+// app/events/page.tsx - WITH MULTIPLE FOOD ITEMS FEATURE
 "use client";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
@@ -13,6 +13,14 @@ interface FoodItem {
   dietary_restrictions: string;
   quantity: number;
   calorie: number;
+}
+
+// Temporary food item type for form
+interface TempFoodItem {
+  food_name: string;
+  dietary_restrictions: string;
+  quantity: string;
+  calorie: string;
 }
 
 interface Event {
@@ -41,12 +49,13 @@ export default function EventsPage() {
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
 
-  // Food form states
+  // Food form states - MULTIPLE ITEMS
   const [includeFood, setIncludeFood] = useState(false);
-  const [foodName, setFoodName] = useState('');
-  const [dietaryRestrictions, setDietaryRestrictions] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [calorie, setCalorie] = useState('');
+  const [foodItems, setFoodItems] = useState<TempFoodItem[]>([]);
+  const [currentFoodName, setCurrentFoodName] = useState('');
+  const [currentDietaryRestrictions, setCurrentDietaryRestrictions] = useState('');
+  const [currentQuantity, setCurrentQuantity] = useState('');
+  const [currentCalorie, setCurrentCalorie] = useState('');
 
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,6 +226,35 @@ export default function EventsPage() {
     }
   };
 
+  // ⭐ NEW: Add food item to list
+  const handleAddFoodItem = () => {
+    if (!currentFoodName || !currentQuantity) {
+      setFormError('Food name and quantity are required!');
+      return;
+    }
+
+    const newFoodItem: TempFoodItem = {
+      food_name: currentFoodName,
+      dietary_restrictions: currentDietaryRestrictions || 'None',
+      quantity: currentQuantity,
+      calorie: currentCalorie || '0',
+    };
+
+    setFoodItems([...foodItems, newFoodItem]);
+
+    // Clear current food fields
+    setCurrentFoodName('');
+    setCurrentDietaryRestrictions('');
+    setCurrentQuantity('');
+    setCurrentCalorie('');
+    setFormError('');
+  };
+
+  // ⭐ NEW: Remove food item from list
+  const handleRemoveFoodItem = (index: number) => {
+    setFoodItems(foodItems.filter((_, i) => i !== index));
+  };
+
   const handleEventSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(''); // Clear previous errors
@@ -226,7 +264,7 @@ export default function EventsPage() {
       return;
     }
   
-    // ⭐ NEW: Validate event is not in the past
+    // ⭐ Validate event is not in the past
     const eventStartDateTime = new Date(`${date}T${startTime}`);
     const now = new Date();
     
@@ -235,16 +273,16 @@ export default function EventsPage() {
       return;
     }
     
-    // ⭐ NEW: Validate end time is after start time
+    // ⭐ Validate end time is after start time
     const eventEndDateTime = new Date(`${date}T${endTime}`);
     if (eventEndDateTime <= eventStartDateTime) {
       setFormError('❌ End time must be after start time!');
       return;
     }
   
-    // If food checkbox is checked, validate required food fields
-    if (includeFood && (!foodName || !quantity)) {
-      setFormError('Please complete all required food fields (food name, quantity).');
+    // ⭐ NEW: Check if user wants food but hasn't added any
+    if (includeFood && foodItems.length === 0) {
+      setFormError('Please add at least one food item or uncheck "Include food".');
       return;
     }
   
@@ -272,25 +310,27 @@ export default function EventsPage() {
   
       const eventId = data?.[0]?.id;
   
-      // Add food item if checkbox is checked
-      if (includeFood && eventId) {
-        const foodError = await supabase.from("food_items").insert([
-          {
-            event_id: eventId,
-            food_name: foodName,
-            dietary_restrictions: dietaryRestrictions || "None",
-            quantity: parseInt(quantity),
-            calorie: calorie ? parseInt(calorie) : 0,
-          },
-        ]);
-  
-        if (foodError.error) throw foodError.error;
+      // ⭐ NEW: Add ALL food items
+      if (includeFood && eventId && foodItems.length > 0) {
+        const foodItemsToInsert = foodItems.map(item => ({
+          event_id: eventId,
+          food_name: item.food_name,
+          dietary_restrictions: item.dietary_restrictions,
+          quantity: parseInt(item.quantity),
+          calorie: parseInt(item.calorie),
+        }));
+
+        const { error: foodError } = await supabase
+          .from("food_items")
+          .insert(foodItemsToInsert);
+
+        if (foodError) throw foodError;
       }
   
       setPopupType("success");
-      setPopupMessage("Event created successfully!");
+      setPopupMessage(`Event created successfully with ${foodItems.length} food item(s)!`);
       setFormVisible(false);
-      setFormError(''); // Clear form error on success
+      setFormError('');
   
       setTitle("");
       setDescription("");
@@ -300,12 +340,13 @@ export default function EventsPage() {
       setEndTime("");
       setLocation("");
   
-      // Reset food form states
+      // ⭐ NEW: Reset food form states
       setIncludeFood(false);
-      setFoodName('');
-      setDietaryRestrictions('');
-      setQuantity('');
-      setCalorie('');
+      setFoodItems([]);
+      setCurrentFoodName('');
+      setCurrentDietaryRestrictions('');
+      setCurrentQuantity('');
+      setCurrentCalorie('');
   
       fetchEvents(1, searchQuery);
     } catch (err) {
@@ -356,6 +397,7 @@ export default function EventsPage() {
               onClick={() => {
                 setFormVisible(false);
                 setFormError('');
+                setFoodItems([]);
               }}
               className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
             >
@@ -439,37 +481,74 @@ export default function EventsPage() {
                 Include food
               </label>
 
-              {/* Food fields - only shown when checkbox is checked */}
+              {/* ⭐ NEW: Multiple Food Items Section */}
               {includeFood && (
-                <div className="space-y-3 pt-2">
-                  <input
-                    type="text"
-                    placeholder="Food name"
-                    value={foodName}
-                    onChange={(e) => setFoodName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Dietary restrictions (optional)"
-                    value={dietaryRestrictions}
-                    onChange={(e) => setDietaryRestrictions(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Quantity"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Calories (optional)"
-                    value={calorie}
-                    onChange={(e) => setCalorie(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  />
+                <div className="space-y-3 pt-2 border-t border-gray-200 mt-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Add Food Items</h3>
+                  
+                  {/* Current food item being added */}
+                  <div className="space-y-2 bg-gray-50 p-3 rounded-md">
+                    <input
+                      type="text"
+                      placeholder="Food name *"
+                      value={currentFoodName}
+                      onChange={(e) => setCurrentFoodName(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md p-2"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Dietary restrictions (optional)"
+                      value={currentDietaryRestrictions}
+                      onChange={(e) => setCurrentDietaryRestrictions(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md p-2"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Quantity *"
+                      value={currentQuantity}
+                      onChange={(e) => setCurrentQuantity(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md p-2"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Calories (optional)"
+                      value={currentCalorie}
+                      onChange={(e) => setCurrentCalorie(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md p-2"
+                    />
+                    
+                    <button
+                      type="button"
+                      onClick={handleAddFoodItem}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      + Add Food Item
+                    </button>
+                  </div>
+
+                  {/* List of added food items */}
+                  {foodItems.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-gray-700">Added Food Items ({foodItems.length}):</h4>
+                      {foodItems.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center bg-white p-2 rounded-md border border-gray-200">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.food_name}</p>
+                            <p className="text-xs text-gray-500">
+                              {item.dietary_restrictions} • Qty: {item.quantity} • {item.calorie} cal
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFoodItem(index)}
+                            className="ml-2 px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
