@@ -221,7 +221,14 @@ export default function EventsPage() {
 
     if (!title || !description || !capacity || !date || !startTime || !endTime || !location) {
       setPopupType('error');
-      setPopupMessage('Please fill in all fields.');
+      setPopupMessage('Please fill in all event fields.');
+      return;
+    }
+
+    // If food checkbox is checked, validate required food fields except dietary restrictions
+    if (includeFood && (!foodName || !quantity || !calorie)) {
+      setPopupType('error');
+      setPopupMessage('Please complete all required food fields (food name, quantity, calories).');
       return;
     }
 
@@ -250,19 +257,13 @@ export default function EventsPage() {
 
       const eventId = data?.[0]?.id;
 
-      // Add food item only if checkbox is checked
+      // Add food item if checkbox is checked
       if (includeFood && eventId) {
-        if (!foodName || !dietaryRestrictions || !quantity || !calorie) {
-          setPopupType("error");
-          setPopupMessage("Please complete all food fields.");
-          return;
-        }
-
         const foodError = await supabase.from("food_items").insert([
           {
             event_id: eventId,
             food_name: foodName,
-            dietary_restrictions: dietaryRestrictions,
+            dietary_restrictions: dietaryRestrictions || "None",
             quantity: parseInt(quantity),
             calorie: parseInt(calorie),
           },
@@ -283,6 +284,7 @@ export default function EventsPage() {
       setEndTime("");
       setLocation("");
 
+      // Reset food form states
       setIncludeFood(false);
       setFoodName('');
       setDietaryRestrictions('');
@@ -403,7 +405,7 @@ export default function EventsPage() {
                 className="w-full border border-gray-300 rounded-md p-2"
               />
 
-              {/* Food box */}
+              {/* Food checkbox */}
               <label className="block text-sm font-medium mt-4">
                 <input 
                   type="checkbox" 
@@ -414,7 +416,7 @@ export default function EventsPage() {
                 Include food
               </label>
 
-              {/* only shown when checkbox is checked */}
+              {/* Food fields - only shown when checkbox is checked */}
               {includeFood && (
                 <div className="space-y-3 pt-2">
                   <input
@@ -426,7 +428,7 @@ export default function EventsPage() {
                   />
                   <input
                     type="text"
-                    placeholder="Dietary restrictions"
+                    placeholder="Dietary restrictions (optional)"
                     value={dietaryRestrictions}
                     onChange={(e) => setDietaryRestrictions(e.target.value)}
                     className="w-full border border-gray-300 rounded-md p-2"
