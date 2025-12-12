@@ -1,4 +1,4 @@
-// app/events/page.tsx - WITH MULTIPLE FOOD ITEMS FEATURE
+// app/events/page.tsx - WITH MULTIPLE FOOD ITEMS + USDA API
 "use client";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
@@ -57,6 +57,9 @@ export default function EventsPage() {
   const [currentQuantity, setCurrentQuantity] = useState('');
   const [currentCalorie, setCurrentCalorie] = useState('');
 
+  // NEW: API loading state
+  const [loadingCalories, setLoadingCalories] = useState(false);
+
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +107,6 @@ export default function EventsPage() {
       )
       .subscribe();
 
-    // Listen to food reservations changes to update availability in real-time
     const reservationsChannel = supabase
       .channel("food-reservations-changes")
       .on(
@@ -120,7 +122,6 @@ export default function EventsPage() {
       )
       .subscribe();
 
-    // Listen to event registrations to update capacity
     const registrationsChannel = supabase
       .channel("event-registrations-changes")
       .on(
@@ -155,7 +156,6 @@ export default function EventsPage() {
     try {
       setLoading(true);
 
-      // Fetch ALL events
       let query = supabase
         .from("events")
         .select("*")
@@ -165,7 +165,6 @@ export default function EventsPage() {
 
       if (error) throw error;
 
-      // Fetch food items for each event
       let eventsWithFood = await Promise.all(
         (data || []).map(async (event) => {
           const { data: foodData, error: foodError } = await supabase
@@ -182,7 +181,6 @@ export default function EventsPage() {
         })
       );
 
-      // ⭐ FILTER OUT EXPIRED AND FULLY BOOKED EVENTS ⭐
       const activeEvents = [];
       for (const event of eventsWithFood) {
         const isVisible = await shouldShowEvent(event);
@@ -191,7 +189,6 @@ export default function EventsPage() {
         }
       }
 
-      // Filter by search query (events + food items)
       let filteredEvents = activeEvents;
       if (search.trim() !== "") {
         filteredEvents = activeEvents.filter((event) => {
@@ -210,7 +207,6 @@ export default function EventsPage() {
         });
       }
 
-      // Now apply pagination to filtered results
       const totalFilteredCount = filteredEvents.length;
       const from = (page - 1) * pageSize;
       const to = from + pageSize;
@@ -226,7 +222,64 @@ export default function EventsPage() {
     }
   };
 
-  // ⭐ NEW: Add food item to list
+  // ⭐ NEW: Fetch calories from USDA API
+  const fetchCaloriesFromUSDA = async () => {
+    if (!currentFoodName.trim()) {
+      setFormError('Please enter a food name first!');
+      return;
+    }
+
+    setLoadingCalories(true);
+    setFormError('');
+
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_USDA_API_KEY;
+      
+      if (!apiKey) {
+        setFormError('USDA API key not configured. Please add it to .env.local');
+        setLoadingCalories(false);
+        return;
+      }
+
+      // Search for the food item
+      const searchUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(currentFoodName)}&pageSize=1&api_key=${apiKey}`;
+      
+      const response = await fetch(searchUrl);
+      const data = await response.json();
+
+      if (data.foods && data.foods.length > 0) {
+        const food = data.foods[0];
+        
+        // Find calorie information in nutrients
+        const calorieNutrient = food.foodNutrients?.find(
+          (nutrient: any) => nutrient.nutrientName === "Energy" || nutrient.nutrientNumber === "208"
+        );
+
+        if (calorieNutrient) {
+          const calories = Math.round(calorieNutrient.value);
+          setCurrentCalorie(calories.toString());
+          
+          // Auto-fill dietary restrictions if available
+          if (food.dataType === "Branded" && food.ingredients) {
+            // You could parse ingredients for common allergens here
+            // For now, we'll leave it for the user to fill
+          }
+          
+          setFormError(''); // Clear any errors
+        } else {
+          setFormError('Calorie information not found for this food.');
+        }
+      } else {
+        setFormError(`No nutrition data found for "${currentFoodName}". Try a different name or enter manually.`);
+      }
+    } catch (error) {
+      console.error('Error fetching USDA data:', error);
+      setFormError('Failed to fetch nutrition data. Please try again or enter manually.');
+    } finally {
+      setLoadingCalories(false);
+    }
+  };
+
   const handleAddFoodItem = () => {
     if (!currentFoodName || !currentQuantity) {
       setFormError('Food name and quantity are required!');
@@ -242,7 +295,6 @@ export default function EventsPage() {
 
     setFoodItems([...foodItems, newFoodItem]);
 
-    // Clear current food fields
     setCurrentFoodName('');
     setCurrentDietaryRestrictions('');
     setCurrentQuantity('');
@@ -250,21 +302,19 @@ export default function EventsPage() {
     setFormError('');
   };
 
-  // ⭐ NEW: Remove food item from list
   const handleRemoveFoodItem = (index: number) => {
     setFoodItems(foodItems.filter((_, i) => i !== index));
   };
 
   const handleEventSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setFormError(''); // Clear previous errors
+    setFormError('');
   
     if (!title || !description || !capacity || !date || !startTime || !endTime || !location) {
       setFormError('Please fill in all event fields.');
       return;
     }
   
-    // ⭐ Validate event is not in the past
     const eventStartDateTime = new Date(`${date}T${startTime}`);
     const now = new Date();
     
@@ -273,14 +323,12 @@ export default function EventsPage() {
       return;
     }
     
-    // ⭐ Validate end time is after start time
     const eventEndDateTime = new Date(`${date}T${endTime}`);
     if (eventEndDateTime <= eventStartDateTime) {
       setFormError('❌ End time must be after start time!');
       return;
     }
   
-    // ⭐ NEW: Check if user wants food but hasn't added any
     if (includeFood && foodItems.length === 0) {
       setFormError('Please add at least one food item or uncheck "Include food".');
       return;
@@ -310,7 +358,6 @@ export default function EventsPage() {
   
       const eventId = data?.[0]?.id;
   
-      // ⭐ NEW: Add ALL food items
       if (includeFood && eventId && foodItems.length > 0) {
         const foodItemsToInsert = foodItems.map(item => ({
           event_id: eventId,
@@ -339,8 +386,6 @@ export default function EventsPage() {
       setStartTime("");
       setEndTime("");
       setLocation("");
-  
-      // ⭐ NEW: Reset food form states
       setIncludeFood(false);
       setFoodItems([]);
       setCurrentFoodName('');
@@ -362,7 +407,6 @@ export default function EventsPage() {
             Find Free Food Events!
           </h1>
           <p className="mt-4 text-stone-500">Discover events with food accommodations across campus!</p>
-          {/* badge showing filtered events */}
           <div className="mt-2 inline-block bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full">
             ✅ Showing only available events • Auto-hide expired/fully booked
           </div>
@@ -406,7 +450,6 @@ export default function EventsPage() {
 
             <h2 className="text-xl font-semibold mb-4 text-center">Create an Event</h2>
 
-            {/* Form Error Message */}
             {formError && (
               <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
                 {formError}
@@ -470,7 +513,6 @@ export default function EventsPage() {
                 className="w-full border border-gray-300 rounded-md p-2"
               />
 
-              {/* Food checkbox */}
               <label className="block text-sm font-medium mt-4">
                 <input 
                   type="checkbox" 
@@ -481,12 +523,10 @@ export default function EventsPage() {
                 Include food
               </label>
 
-              {/* ⭐ NEW: Multiple Food Items Section */}
               {includeFood && (
                 <div className="space-y-3 pt-2 border-t border-gray-200 mt-3">
                   <h3 className="text-sm font-semibold text-gray-700">Add Food Items</h3>
                   
-                  {/* Current food item being added */}
                   <div className="space-y-2 bg-gray-50 p-3 rounded-md">
                     <input
                       type="text"
@@ -509,13 +549,25 @@ export default function EventsPage() {
                       onChange={(e) => setCurrentQuantity(e.target.value)}
                       className="w-full border border-gray-300 rounded-md p-2"
                     />
-                    <input
-                      type="number"
-                      placeholder="Calories (optional)"
-                      value={currentCalorie}
-                      onChange={(e) => setCurrentCalorie(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    />
+                    
+                    {/* ⭐ NEW: Calories with USDA API button */}
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Calories (optional)"
+                        value={currentCalorie}
+                        onChange={(e) => setCurrentCalorie(e.target.value)}
+                        className="flex-1 border border-gray-300 rounded-md p-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={fetchCaloriesFromUSDA}
+                        disabled={loadingCalories || !currentFoodName}
+                        className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap text-sm"
+                      >
+                        {loadingCalories ? '⏳' : '🔍'} Get Calories
+                      </button>
+                    </div>
                     
                     <button
                       type="button"
@@ -526,7 +578,6 @@ export default function EventsPage() {
                     </button>
                   </div>
 
-                  {/* List of added food items */}
                   {foodItems.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-semibold text-gray-700">Added Food Items ({foodItems.length}):</h4>
@@ -565,7 +616,6 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Popup */}
       {popupMessage && (
         <div
           onClick={() => setPopupMessage("")}
@@ -579,7 +629,6 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* List of Events */}
       <div className="max-w-6xl mx-auto mt-14">
         <h2 className="text-2xl font-semibold mb-6 text-center">
           Available Events
@@ -622,7 +671,6 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* Pagination */}
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
