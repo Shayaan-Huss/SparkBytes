@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Event } from "../../types/event";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
@@ -21,16 +21,33 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
   const [isRegistered, setIsRegistered] = useState<boolean | null>(null);
   const [remainingSpots, setRemainingSpots] = useState<number | null>(null);
 
-  // Temporary selections before registration
+  // Temporary selections (Current UI State)
   const [tempReservedFood, setTempReservedFood] = useState<Record<number, boolean>>({});
 
-  // Saved reservations from DB (after registration)
+  // Saved reservations from DB (Committed State)
   const [savedReservedFood, setSavedReservedFood] = useState<Record<number, boolean>>({});
 
   // UI-level remaining quantities per food item
   const [foodQuantities, setFoodQuantities] = useState<Record<number, number>>({});
 
   const foodList = useMemo(() => event.food_items ?? [], [event.food_items]);
+
+  // Check if there are unsaved changes
+  const hasChanges = useMemo(() => {
+    if (!isRegistered) return false;
+
+    const allIds = new Set([
+      ...Object.keys(tempReservedFood).map(Number),
+      ...Object.keys(savedReservedFood).map(Number),
+    ]);
+
+    for (const id of allIds) {
+      const inTemp = !!tempReservedFood[id];
+      const inSaved = !!savedReservedFood[id];
+      if (inTemp !== inSaved) return true;
+    }
+    return false;
+  }, [tempReservedFood, savedReservedFood, isRegistered]);
 
   const formatTime = (t: string) =>
     new Date(`2000-01-01T${t}`).toLocaleTimeString("en-US", {
@@ -39,31 +56,24 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
       hour12: true,
     });
 
-  // Toggle temp food selection and update UI quantity
+  // Toggle food selection (works for both initial register and update)
   const toggleTempReserve = (foodId: number) => {
-    if (isRegistered) return;
-    if (savedReservedFood[foodId]) return;
-
-    // 1. Determine next selection state based on current state
     const isCurrentlySelected = !!tempReservedFood[foodId];
     const isNowSelected = !isCurrentlySelected;
 
-    // 2. Check availability based on current UI state
     const currentQty = foodQuantities[foodId] ?? 0;
 
-    // Prevent selection if no quantity left
+    // Only block if we are SELECTING and there is NO qty left
     if (isNowSelected && currentQty <= 0) {
       showText("No more servings left for this item.", "error");
       return;
     }
 
-    // 3. Update selection state
     setTempReservedFood((prev) => ({
       ...prev,
       [foodId]: isNowSelected,
     }));
 
-    // 4. Update quantity state independently to avoid double-execution issues in Strict Mode
     setFoodQuantities((q) => {
       const current = q[foodId] ?? 0;
       return {
@@ -74,15 +84,15 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
   };
 
   const handleClose = () => {
-    // Clear temp selection, quantities will be recalculated next time modal opens
     setTempReservedFood({});
     onClose();
   };
 
+  // Logic for initial Registration
   const handleRegister = async () => {
     if (!user) return;
 
-    // 1. Re-check event capacity in real-time
+    // 1. Re-check event capacity
     const { count: liveCount, error: liveCountError } = await supabase
       .from("event_registrations")
       .select("*", { count: "exact", head: true })
@@ -95,13 +105,12 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
     }
 
     const liveRemaining = event.capacity - (liveCount ?? 0);
-
     if (liveRemaining <= 0) {
       showText("No spots left. Someone registered before you.", "error");
       return;
     }
 
-    // 2. Re-check food availability in real-time
+    // 2. Re-check food availability
     const { data: allFoodRes, error: allFoodErr } = await supabase
       .from("food_reservations")
       .select("food_id")
@@ -113,23 +122,18 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
       return;
     }
 
-    // Calculate live quantities based on DB data
     const liveFoodQty: Record<number, number> = {};
     foodList.forEach((item) => {
       liveFoodQty[item.id] = item.quantity;
     });
-
     (allFoodRes || []).forEach((row: { food_id: number }) => {
-      if (liveFoodQty[row.food_id] !== undefined) {
-        liveFoodQty[row.food_id] -= 1;
-      }
+      if (liveFoodQty[row.food_id] !== undefined) liveFoodQty[row.food_id] -= 1;
     });
 
     const selectedFoodIds = Object.keys(tempReservedFood)
       .filter((id) => tempReservedFood[Number(id)])
       .map((id) => Number(id));
 
-    // Verify if selected items are still available
     for (const fid of selectedFoodIds) {
       if (liveFoodQty[fid] <= 0) {
         showText(
@@ -151,7 +155,7 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
       return;
     }
 
-    // 4. Insert food reservations (only for selected items)
+    // 4. Insert food reservations
     if (selectedFoodIds.length > 0) {
       const inserts = selectedFoodIds.map((fid) => ({
         user_id: user.id,
@@ -171,14 +175,104 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
 
     // 5. Update UI state
     setSavedReservedFood({ ...tempReservedFood });
-    setTempReservedFood({});
+    // Keep temp in sync with saved
+    setTempReservedFood({ ...tempReservedFood });
     setIsRegistered(true);
     setRemainingSpots((prev) => (prev !== null ? prev - 1 : prev));
 
     showText("Registered successfully!", "success");
   };
 
-  // Cancel registration and remove food reservations for this user
+  // Logic for Updating existing Registration
+  const handleUpdate = async () => {
+    if (!user) return;
+
+    const currentSelectedIds = Object.keys(tempReservedFood)
+      .filter((id) => tempReservedFood[Number(id)])
+      .map(Number);
+
+    const savedIds = Object.keys(savedReservedFood)
+      .filter((id) => savedReservedFood[Number(id)])
+      .map(Number);
+
+    // Items to Add: In temp but not in saved
+    const toAdd = currentSelectedIds.filter((id) => !savedReservedFood[id]);
+    // Items to Remove: In saved but not in temp
+    const toRemove = savedIds.filter((id) => !tempReservedFood[id]);
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
+      // Changed "info" to "error" to match type definition, or you can use "success" with a message
+      showText("No changes detected.", "error"); 
+      return;
+    }
+
+    // 1. Verify inventory ONLY for items we are ADDING
+    if (toAdd.length > 0) {
+      const { data: allFoodRes, error: allFoodErr } = await supabase
+        .from("food_reservations")
+        .select("food_id")
+        .eq("event_id", event.id);
+
+      if (allFoodErr) {
+        showText("Could not verify food availability.", "error");
+        return;
+      }
+
+      const liveFoodQty: Record<number, number> = {};
+      foodList.forEach((item) => {
+        liveFoodQty[item.id] = item.quantity;
+      });
+      (allFoodRes || []).forEach((row: { food_id: number }) => {
+        if (liveFoodQty[row.food_id] !== undefined) liveFoodQty[row.food_id] -= 1;
+      });
+
+      for (const fid of toAdd) {
+        if (liveFoodQty[fid] <= 0) {
+          showText("Some new items selected are no longer available.", "error");
+          return;
+        }
+      }
+    }
+
+    // 2. Perform Removal
+    if (toRemove.length > 0) {
+      const { error: delErr } = await supabase
+        .from("food_reservations")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("event_id", event.id)
+        .in("food_id", toRemove);
+
+      if (delErr) {
+        console.error("Remove food failed:", delErr);
+        showText("Failed to remove some items.", "error");
+        return;
+      }
+    }
+
+    // 3. Perform Addition
+    if (toAdd.length > 0) {
+      const inserts = toAdd.map((fid) => ({
+        user_id: user.id,
+        food_id: fid,
+        event_id: event.id,
+      }));
+      const { error: addErr } = await supabase
+        .from("food_reservations")
+        .insert(inserts);
+
+      if (addErr) {
+        console.error("Add food failed:", addErr);
+        showText("Failed to add some items.", "error");
+        return;
+      }
+    }
+
+    // 4. Sync State
+    setSavedReservedFood({ ...tempReservedFood });
+    showText("Reservation updated successfully!", "success");
+  };
+
   const handleCancelRegistration = async () => {
     if (!user) return;
 
@@ -204,7 +298,7 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
       console.error("Cancel food reservations failed:", foodErr);
     }
 
-    // Recompute food quantities from DB (exclude current user)
+    // Recompute food quantities from DB
     const baseQuantities: Record<number, number> = {};
     foodList.forEach((item) => {
       baseQuantities[item.id] = item.quantity;
@@ -216,13 +310,13 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
       .eq("event_id", event.id);
 
     if (allFoodErr) {
-      console.error("Fetch food reservations after cancel failed:", allFoodErr);
+        console.error("Fetch food reservations failed:", allFoodErr);
     } else {
-      (allFoodRes || []).forEach((row: { food_id: number }) => {
-        if (baseQuantities[row.food_id] !== undefined) {
-          baseQuantities[row.food_id] -= 1;
-        }
-      });
+        (allFoodRes || []).forEach((row: { food_id: number }) => {
+            if (baseQuantities[row.food_id] !== undefined) {
+              baseQuantities[row.food_id] -= 1;
+            }
+        });
     }
 
     setFoodQuantities(baseQuantities);
@@ -231,26 +325,22 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
     setTempReservedFood({});
     setRemainingSpots((prev) => (prev !== null ? prev + 1 : prev));
 
-    showText("Registration and food reservations canceled.", "success");
+    showText("Registration canceled.", "success");
   };
 
   useEffect(() => {
     if (!isOpen || !user) return;
 
     const loadData = async () => {
-      setTempReservedFood({});
-
-      // 1. Check if user is registered
+      // 1. Check registration
       const { data: regData, error: regError } = await supabase
         .from("event_registrations")
         .select("*")
         .eq("event_id", event.id)
         .eq("user_id", user.id)
         .maybeSingle();
-
-      if (regError) {
-        console.error("Fetch registration failed:", regError);
-      }
+    
+      if(regError) console.error(regError);
 
       const registered = !!regData;
       setIsRegistered(registered);
@@ -260,55 +350,50 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
         .from("event_registrations")
         .select("*", { count: "exact", head: true })
         .eq("event_id", event.id);
+      
+      if(countError) console.error(countError);
 
-      if (countError) {
-        console.error("Fetch registration count failed:", countError);
-      }
+      setRemainingSpots(event.capacity - (count ?? 0));
 
-      const safeCount = count ?? 0;
-      setRemainingSpots(event.capacity - safeCount);
-
-      // 3. Compute base quantities from event
+      // 3. Base Quantities
       const baseQuantities: Record<number, number> = {};
       foodList.forEach((item) => {
         baseQuantities[item.id] = item.quantity;
       });
 
-      // 4. Subtract all reservations (all users) from DB
+      // 4. Subtract ALL reservations from DB
       const { data: allFoodRes, error: allFoodErr } = await supabase
         .from("food_reservations")
         .select("food_id")
         .eq("event_id", event.id);
+      
+      if(allFoodErr) console.error(allFoodErr);
 
-      if (allFoodErr) {
-        console.error("Fetch food reservations failed:", allFoodErr);
-      } else {
-        (allFoodRes || []).forEach((row: { food_id: number }) => {
-          if (baseQuantities[row.food_id] !== undefined) {
-            baseQuantities[row.food_id] -= 1;
-          }
-        });
-      }
+      (allFoodRes || []).forEach((row: { food_id: number }) => {
+        if (baseQuantities[row.food_id] !== undefined) {
+          baseQuantities[row.food_id] -= 1;
+        }
+      });
 
-      // 5. If registered, fetch this user's saved reservations for UI highlight
+      // 5. If registered, Initialize Saved AND Temp state
       if (registered) {
         const { data: foodData, error: foodError } = await supabase
           .from("food_reservations")
           .select("food_id")
           .eq("event_id", event.id)
           .eq("user_id", user.id);
+        
+        if(foodError) console.error(foodError);
 
-        if (foodError) {
-          console.error("Fetch user food reservations failed:", foodError);
-        } else {
-          const saved: Record<number, boolean> = {};
-          (foodData || []).forEach((row: { food_id: number }) => {
-            saved[row.food_id] = true;
-          });
-          setSavedReservedFood(saved);
-        }
+        const saved: Record<number, boolean> = {};
+        (foodData || []).forEach((row: { food_id: number }) => {
+          saved[row.food_id] = true;
+        });
+        setSavedReservedFood(saved);
+        setTempReservedFood(saved); // Initialize Temp with Saved
       } else {
         setSavedReservedFood({});
+        setTempReservedFood({});
       }
 
       setFoodQuantities(baseQuantities);
@@ -322,7 +407,6 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md z-50">
       <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 relative">
-        {/* Close Button */}
         <button
           onClick={handleClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
@@ -330,7 +414,6 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
           ✕
         </button>
 
-        {/* Title */}
         <h2 className="text-2xl font-bold mb-4 text-center">{event.title}</h2>
 
         {/* Description */}
@@ -380,38 +463,31 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
           </div>
         </div>
 
-        {/* Divider */}
         <div className="border-t my-4"></div>
 
-        {/* Food Items */}
         <h3 className="text-lg font-semibold mb-3">Food Items</h3>
 
         {foodList.length > 0 ? (
           <div className="grid grid-cols-2 gap-4">
             {foodList.map((item) => {
-              const isSaved = !!savedReservedFood[item.id];
-              const isTemp = !!tempReservedFood[item.id];
-              const isReserved = isSaved || isTemp;
+              // Now we rely on tempReservedFood for UI state even after register
+              const isSelected = !!tempReservedFood[item.id];
               const remainingFood = foodQuantities[item.id] ?? item.quantity;
 
               return (
                 <div
                   key={item.id}
                   className={`border rounded-lg p-3 bg-gray-50 shadow-sm transition-all ${
-                    isReserved ? "border-blue-500 shadow-md" : "border-gray-300"
+                    isSelected ? "border-blue-500 shadow-md" : "border-gray-300"
                   }`}
                 >
-                  {/* Item Header: Name, Total, and Remaining */}
                   <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold">{item.food_name}</p>
-                      {/* Total Quantity moved here */}
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
                         Total: {item.quantity}
                       </span>
                     </div>
-                    
-                    {/* Remaining Count */}
                     <span
                       className={
                         "inline-block text-xs px-3 py-1 rounded-full font-medium ml-2 shrink-0 " +
@@ -422,7 +498,6 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
                     </span>
                   </div>
 
-                  {/* Dietary Info */}
                   <p className="text-sm text-gray-600">
                     {item.dietary_restrictions || "No dietary restrictions"}
                   </p>
@@ -430,22 +505,17 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
                     🔥 {item.calorie} cal
                   </p>
 
-                  {/* Reserve Button */}
                   <div className="flex justify-end mt-3">
                     <button
                       onClick={() => toggleTempReserve(item.id)}
-                      disabled={!!isRegistered}
+                      // Removed "disabled" to allow editing
                       className={`text-xs px-3 py-1 rounded transition-all border ${
-                        isReserved
+                        isSelected
                           ? "bg-blue-100 text-blue-700 border-blue-400"
                           : "bg-green-100 text-green-700 border-green-400"
-                      } ${isRegistered ? "opacity-70 cursor-not-allowed" : ""}`}
+                      }`}
                     >
-                      {isSaved
-                        ? "✓ Reserved"
-                        : isReserved
-                        ? "Reserved"
-                        : "Reserve"}
+                      {isSelected ? "Reserved" : "Reserve"}
                     </button>
                   </div>
                 </div>
@@ -456,20 +526,33 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
           <p className="text-gray-500 text-sm">No food items added yet.</p>
         )}
 
-        {/* Registration Actions */}
+        {/* Action Buttons */}
         <div className="mt-6 pt-4 border-t">
           {isCreator ? (
             <p className="text-center text-blue-700 font-medium">
               You are the creator of this event.
             </p>
           ) : isRegistered ? (
-            <button
-              className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
-              onClick={handleCancelRegistration}
-            >
-              Cancel Registration
-            </button>
+            // IF REGISTERED
+            hasChanges ? (
+              // IF CHANGES DETECTED -> BLUE UPDATE BUTTON
+              <button
+                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                onClick={handleUpdate}
+              >
+                Update Reservation
+              </button>
+            ) : (
+              // IF NO CHANGES -> RED CANCEL BUTTON
+              <button
+                className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
+                onClick={handleCancelRegistration}
+              >
+                Cancel Registration
+              </button>
+            )
           ) : (
+            // IF NOT REGISTERED -> GREEN REGISTER BUTTON
             <button
               className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
               onClick={handleRegister}
