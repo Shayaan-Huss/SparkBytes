@@ -54,6 +54,7 @@ export default function EventsPage() {
 
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState<'success' | 'error' | ''>('');
+  const [formError, setFormError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination states
@@ -218,17 +219,16 @@ export default function EventsPage() {
 
   const handleEventSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFormError(''); // Clear previous errors
 
     if (!title || !description || !capacity || !date || !startTime || !endTime || !location) {
-      setPopupType('error');
-      setPopupMessage('Please fill in all event fields.');
+      setFormError('Please fill in all event fields.');
       return;
     }
 
-    // If food checkbox is checked, validate required food fields except dietary restrictions
+    // If food checkbox is checked, validate required food fields
     if (includeFood && (!foodName || !quantity || !calorie)) {
-      setPopupType('error');
-      setPopupMessage('Please complete all required food fields (food name, quantity, calories).');
+      setFormError('Please complete all required food fields (food name, quantity, calories).');
       return;
     }
 
@@ -275,6 +275,7 @@ export default function EventsPage() {
       setPopupType("success");
       setPopupMessage("Event created successfully!");
       setFormVisible(false);
+      setFormError(''); // Clear form error on success
 
       setTitle("");
       setDescription("");
@@ -293,10 +294,7 @@ export default function EventsPage() {
 
       fetchEvents(1, searchQuery);
     } catch (err) {
-      setPopupType("error");
-      setPopupMessage(
-        err instanceof Error ? err.message : "Failed to create event."
-      );
+      setFormError(err instanceof Error ? err.message : "Failed to create event.");
     }
   };
 
@@ -347,6 +345,13 @@ export default function EventsPage() {
             </button>
 
             <h2 className="text-xl font-semibold mb-4 text-center">Create an Event</h2>
+
+            {/* Form Error Message */}
+            {formError && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
+                {formError}
+              </div>
+            )}
 
             <form onSubmit={handleEventSubmit} className="space-y-3">
 
