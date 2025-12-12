@@ -235,8 +235,7 @@ export default function EventsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setPopupType("error");
-        setPopupMessage("You must be logged in to create an event.");
+        setFormError("You must be logged in to create an event.");
         return;
       }
 
@@ -338,7 +337,10 @@ export default function EventsPage() {
           <div className="bg-white/85 w-full max-w-lg rounded-2xl shadow-lg p-6 relative max-h-[90vh] overflow-y-auto">
             
             <button
-              onClick={() => setFormVisible(false)}
+              onClick={() => {
+                setFormVisible(false);
+                setFormError('');
+              }}
               className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
             >
               ✕
