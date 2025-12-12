@@ -1,4 +1,4 @@
-// app/events/page.tsx - UPDATED VERSION
+// app/events/page.tsx - UPDATED VERSION WITH FOOD CREATION
 "use client";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
@@ -40,6 +40,13 @@ export default function EventsPage() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
+
+  // Food form states
+  const [includeFood, setIncludeFood] = useState(false);
+  const [foodName, setFoodName] = useState('');
+  const [dietaryRestrictions, setDietaryRestrictions] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [calorie, setCalorie] = useState('');
 
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,7 +233,7 @@ export default function EventsPage() {
         return;
       }
 
-      const { error } = await supabase.from("events").insert([
+      const { data, error } = await supabase.from("events").insert([
         {
           title,
           description,
@@ -237,9 +244,32 @@ export default function EventsPage() {
           capacity: parseInt(capacity),
           creator_id: user.id,
         },
-      ]);
+      ]).select();
 
       if (error) throw error;
+
+      const eventId = data?.[0]?.id;
+
+      // Add food item only if checkbox is checked
+      if (includeFood && eventId) {
+        if (!foodName || !dietaryRestrictions || !quantity || !calorie) {
+          setPopupType("error");
+          setPopupMessage("Please complete all food fields.");
+          return;
+        }
+
+        const foodError = await supabase.from("food_items").insert([
+          {
+            event_id: eventId,
+            food_name: foodName,
+            dietary_restrictions: dietaryRestrictions,
+            quantity: parseInt(quantity),
+            calorie: parseInt(calorie),
+          },
+        ]);
+
+        if (foodError.error) throw foodError.error;
+      }
 
       setPopupType("success");
       setPopupMessage("Event created successfully!");
@@ -252,6 +282,12 @@ export default function EventsPage() {
       setStartTime("");
       setEndTime("");
       setLocation("");
+
+      setIncludeFood(false);
+      setFoodName('');
+      setDietaryRestrictions('');
+      setQuantity('');
+      setCalorie('');
 
       fetchEvents(1, searchQuery);
     } catch (err) {
@@ -296,10 +332,10 @@ export default function EventsPage() {
         </div>
       </div>
 
-      {/* Event Form - Same as before */}
+      {/* Event Form */}
       {formVisible && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
-          <div className="bg-white/85 w-full max-w-lg rounded-2xl shadow-lg p-6 relative">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50 overflow-y-auto">
+          <div className="bg-white/85 w-full max-w-lg rounded-2xl shadow-lg p-6 relative max-h-[90vh] overflow-y-auto">
             
             <button
               onClick={() => setFormVisible(false)}
@@ -366,6 +402,51 @@ export default function EventsPage() {
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full border border-gray-300 rounded-md p-2"
               />
+
+              {/* Food box */}
+              <label className="block text-sm font-medium mt-4">
+                <input 
+                  type="checkbox" 
+                  checked={includeFood} 
+                  onChange={(e) => setIncludeFood(e.target.checked)} 
+                  className="mr-2" 
+                />
+                Include food
+              </label>
+
+              {/* only shown when checkbox is checked */}
+              {includeFood && (
+                <div className="space-y-3 pt-2">
+                  <input
+                    type="text"
+                    placeholder="Food name"
+                    value={foodName}
+                    onChange={(e) => setFoodName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md p-2"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Dietary restrictions"
+                    value={dietaryRestrictions}
+                    onChange={(e) => setDietaryRestrictions(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md p-2"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Quantity"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md p-2"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Calories"
+                    value={calorie}
+                    onChange={(e) => setCalorie(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md p-2"
+                  />
+                </div>
+              )}
 
               <div className="flex justify-center pt-3">
                 <button

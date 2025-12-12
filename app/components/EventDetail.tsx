@@ -405,162 +405,163 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md z-50">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 relative">
+    <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md z-50 p-4">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl relative max-h-[90vh] overflow-y-auto">
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+          className="sticky top-0 float-right text-gray-500 hover:text-gray-700 text-xl mt-3 mr-3 z-10 bg-white rounded-full w-8 h-8 flex items-center justify-center"
         >
           ✕
         </button>
 
-        <h2 className="text-2xl font-bold mb-4 text-center">{event.title}</h2>
+        <div className="p-6">
+          <h2 className="text-2xl font-bold mb-4 text-center">{event.title}</h2>
 
-        {/* Description */}
-        <div className="mb-4">
-          <p className="text-sm text-gray-500 font-medium mb-1">📝 Description</p>
-          <p className="text-gray-700">
-            {event.description || "No description provided."}
-          </p>
-        </div>
-
-        {/* Event Info */}
-        <div className="grid grid-cols-2 gap-4 text-gray-700 mb-4">
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Date</p>
-            <p className="font-medium">📅 {event.event_date}</p>
-          </div>
-
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Time</p>
-            <p className="font-medium">
-              ⏰ {formatTime(event.start_time)} – {formatTime(event.end_time)}
+          {/* Description */}
+          <div className="mb-4">
+            <p className="text-sm text-gray-500 font-medium mb-1">📝 Description</p>
+            <p className="text-gray-700">
+              {event.description || "No description provided."}
             </p>
           </div>
 
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Location</p>
-            <p className="font-medium">📍 {event.location}</p>
+          {/* Event Info */}
+          <div className="grid grid-cols-2 gap-4 text-gray-700 mb-4">
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Date</p>
+              <p className="font-medium">📅 {event.event_date}</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Time</p>
+              <p className="font-medium">
+                ⏰ {formatTime(event.start_time)} – {formatTime(event.end_time)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Location</p>
+              <p className="font-medium">📍 {event.location}</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Total Capacity</p>
+              <span className="inline-block bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full font-medium">
+                {event.capacity} spots
+              </span>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Remaining Spots</p>
+              <span
+                className={
+                  "inline-block text-xs px-3 py-1 rounded-full font-medium " +
+                  getBadgeClass(remainingSpots, event.capacity)
+                }
+              >
+                {remainingSpots ?? "..."} left
+              </span>
+            </div>
           </div>
 
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Total Capacity</p>
-            <span className="inline-block bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full font-medium">
-              {event.capacity} spots
-            </span>
-          </div>
+          {/* Divider */}
+          <div className="border-t my-4"></div>
 
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Remaining Spots</p>
-            <span
-              className={
-                "inline-block text-xs px-3 py-1 rounded-full font-medium " +
-                getBadgeClass(remainingSpots, event.capacity)
-              }
-            >
-              {remainingSpots ?? "..."} left
-            </span>
-          </div>
-        </div>
+          {/* Food */}
+          <h3 className="text-lg font-semibold mb-3">Food Items</h3>
 
-        <div className="border-t my-4"></div>
+          {foodList.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              {foodList.map((item) => {
+                const isSaved = !!savedReservedFood[item.id];
+                const isTemp = !!tempReservedFood[item.id];
+                const isReserved = isSaved || isTemp;
+                const remainingFood = foodQuantities[item.id] ?? item.quantity;
 
-        <h3 className="text-lg font-semibold mb-3">Food Items</h3>
-
-        {foodList.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4">
-            {foodList.map((item) => {
-              // Now we rely on tempReservedFood for UI state even after register
-              const isSelected = !!tempReservedFood[item.id];
-              const remainingFood = foodQuantities[item.id] ?? item.quantity;
-
-              return (
-                <div
-                  key={item.id}
-                  className={`border rounded-lg p-3 bg-gray-50 shadow-sm transition-all ${
-                    isSelected ? "border-blue-500 shadow-md" : "border-gray-300"
-                  }`}
-                >
-                  <div className="flex justify-between items-center mb-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold">{item.food_name}</p>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                        Total: {item.quantity}
+                return (
+                  <div
+                    key={item.id}
+                    className={`border rounded-lg p-3 bg-gray-50 shadow-sm transition-all ${
+                      isReserved ? "border-blue-500 shadow-md" : "border-gray-300"
+                    }`}
+                  >
+                    {/* Item Header: Name, Total, and Remaining */}
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{item.food_name}</p>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                          Total: {item.quantity}
+                        </span>
+                      </div>
+                      
+                      {/* Remaining count */}
+                      <span
+                        className={
+                          "inline-block text-xs px-3 py-1 rounded-full font-medium ml-2 shrink-0 " +
+                          getBadgeClass(remainingFood, item.quantity)
+                        }
+                      >
+                        {remainingFood} left
                       </span>
                     </div>
-                    <span
-                      className={
-                        "inline-block text-xs px-3 py-1 rounded-full font-medium ml-2 shrink-0 " +
-                        getBadgeClass(remainingFood, item.quantity)
-                      }
-                    >
-                      {remainingFood} left
-                    </span>
+
+                    {/* Dietary restrictions */}
+                    <p className="text-sm text-gray-600">
+                      {item.dietary_restrictions || "No dietary restrictions"}
+                    </p>
+                    <p className="text-sm text-gray-700 mt-1">
+                      🔥 {item.calorie} cal
+                    </p>
+
+                    {/* Reserve button */}
+                    <div className="flex justify-end mt-3">
+                      <button
+                        onClick={() => toggleTempReserve(item.id)}
+                        disabled={!!isRegistered}
+                        className={`text-xs px-3 py-1 rounded transition-all border ${
+                          isReserved
+                            ? "bg-blue-100 text-blue-700 border-blue-400"
+                            : "bg-green-100 text-green-700 border-green-400"
+                        } ${isRegistered ? "opacity-70 cursor-not-allowed" : ""}`}
+                      >
+                        {isSaved
+                          ? "✓ Reserved"
+                          : isReserved
+                          ? "Reserved"
+                          : "Reserve"}
+                      </button>
+                    </div>
                   </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No food items added yet.</p>
+          )}
 
-                  <p className="text-sm text-gray-600">
-                    {item.dietary_restrictions || "No dietary restrictions"}
-                  </p>
-                  <p className="text-sm text-gray-700 mt-1">
-                    🔥 {item.calorie} cal
-                  </p>
-
-                  <div className="flex justify-end mt-3">
-                    <button
-                      onClick={() => toggleTempReserve(item.id)}
-                      // Removed "disabled" to allow editing
-                      className={`text-xs px-3 py-1 rounded transition-all border ${
-                        isSelected
-                          ? "bg-blue-100 text-blue-700 border-blue-400"
-                          : "bg-green-100 text-green-700 border-green-400"
-                      }`}
-                    >
-                      {isSelected ? "Reserved" : "Reserve"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-gray-500 text-sm">No food items added yet.</p>
-        )}
-
-        {/* Action Buttons */}
-        <div className="mt-6 pt-4 border-t">
-          {isCreator ? (
-            <p className="text-center text-blue-700 font-medium">
-              You are the creator of this event.
-            </p>
-          ) : isRegistered ? (
-            // IF REGISTERED
-            hasChanges ? (
-              // IF CHANGES DETECTED -> BLUE UPDATE BUTTON
-              <button
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
-                onClick={handleUpdate}
-              >
-                Update Reservation
-              </button>
-            ) : (
-              // IF NO CHANGES -> RED CANCEL BUTTON
+          {/* Registration buttons */}
+          <div className="mt-6 pt-4 border-t">
+            {isCreator ? (
+              <p className="text-center text-blue-700 font-medium">
+                You are the creator of this event.
+              </p>
+            ) : isRegistered ? (
               <button
                 className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
                 onClick={handleCancelRegistration}
               >
                 Cancel Registration
               </button>
-            )
-          ) : (
-            // IF NOT REGISTERED -> GREEN REGISTER BUTTON
-            <button
-              className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              onClick={handleRegister}
-              disabled={remainingSpots !== null && remainingSpots <= 0}
-            >
-              Register
-            </button>
-          )}
+            ) : (
+              <button
+                className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                onClick={handleRegister}
+                disabled={remainingSpots !== null && remainingSpots <= 0}
+              >
+                Register
+              </button>
+            )}
+          </div>
         </div>
       </div>
       <ShowText popup={popup} />
