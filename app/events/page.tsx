@@ -227,8 +227,8 @@ export default function EventsPage() {
     }
 
     // If food checkbox is checked, validate required food fields
-    if (includeFood && (!foodName || !quantity || !calorie)) {
-      setFormError('Please complete all required food fields (food name, quantity, calories).');
+    if (includeFood && (!foodName || !quantity)) {
+      setFormError('Please complete all required food fields (food name, quantity).');
       return;
     }
 
@@ -264,7 +264,7 @@ export default function EventsPage() {
             food_name: foodName,
             dietary_restrictions: dietaryRestrictions || "None",
             quantity: parseInt(quantity),
-            calorie: parseInt(calorie),
+            calorie: calorie ? parseInt(calorie) : 0,
           },
         ]);
 
@@ -449,7 +449,7 @@ export default function EventsPage() {
                   />
                   <input
                     type="number"
-                    placeholder="Calories"
+                    placeholder="Calories (optional)"
                     value={calorie}
                     onChange={(e) => setCalorie(e.target.value)}
                     className="w-full border border-gray-300 rounded-md p-2"
