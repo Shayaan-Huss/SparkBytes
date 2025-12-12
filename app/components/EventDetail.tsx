@@ -483,18 +483,20 @@ export function EventDetail({ event, isOpen, onClose }: EventDetailProps) {
                       🔥 {item.calorie} cal
                     </p>
 
-                    <div className="flex justify-end mt-3">
-                      <button
-                        onClick={() => toggleTempReserve(item.id)}
-                        className={`text-xs px-3 py-1 rounded transition-all border ${
-                          isTemp
-                            ? "bg-blue-100 text-blue-700 border-blue-400"
-                            : "bg-green-100 text-green-700 border-green-400"
-                        }`}
-                      >
-                        {isTemp ? "Reserved" : "Reserve"}
-                      </button>
-                    </div>
+                    {!isCreator && (
+                      <div className="flex justify-end mt-3">
+                        <button
+                          onClick={() => toggleTempReserve(item.id)}
+                          className={`text-xs px-3 py-1 rounded transition-all border ${
+                            isTemp
+                              ? "bg-blue-100 text-blue-700 border-blue-400"
+                              : "bg-green-100 text-green-700 border-green-400"
+                          }`}
+                        >
+                          {isTemp ? "Reserved" : "Reserve"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
