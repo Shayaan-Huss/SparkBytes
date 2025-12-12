@@ -3,12 +3,12 @@
 This is a project built with Next.js, Ant Design, and Supabase. It includes features for viewing events and user authentication.
 
 # Group 5 Project Goals
--Develop a full-stack web application enabling BU students and staff to discover and reserve free food from campus events, aiming to reduce food waste from over-purchasing
--Build an interactive and personalized front-end using React.js, JavaScript, and Figma, offering a tailored user experience based on account type (organizer or attendee)
--Integrate Supabase for backend services including user authentication, event creation permissions, and real-time data storage
--Implement secure authentication and role-based access control, allowing only verified organizers to post new events
--Design and test dynamic components with Jest, ensuring UI responsiveness and functionality across user flows
--Contribute to reducing food waste and promoting sustainability through data-driven event visibility and efficient food distribution.
+* Develop a full-stack web application enabling BU students and staff to discover and reserve free food from campus events, aiming to reduce food waste from over-purchasing
+* Build an interactive and personalized front-end using React.js, JavaScript, and Figma, offering a tailored user experience based on account type (organizer or attendee)
+* Integrate Supabase for backend services including user authentication, event creation permissions, and real-time data storage
+* Implement secure authentication and role-based access control, allowing only verified organizers to post new events
+* Design and test dynamic components with Jest, ensuring UI responsiveness and functionality across user flows
+* Contribute to reducing food waste and promoting sustainability through data-driven event visibility and efficient food distribution.
 
 
 ## Project Structure Overview
